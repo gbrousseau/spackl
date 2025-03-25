@@ -1,36 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator, Image, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, Redirect } from 'expo-router';
 import { 
   signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
   GoogleAuthProvider, 
   signInWithCredential,
   signInWithPopup 
 } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 import { useTheme } from '@/context/ThemeContext';
-import { Mail, Lock, LogIn, UserPlus } from 'lucide-react-native';
-import { GoogleSignin, type User } from '@react-native-google-signin/google-signin';
+import { Mail, Lock, LogIn } from 'lucide-react-native';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { useAuth } from '@/context/AuthContext';
 
-// Initialize Google Sign-In
-GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID, // from Google Cloud Console
-  iosClientId: process.env.EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID, // from Google Cloud Console
-});
-
-const WelcomeScreen: React.FC = () => {
+const WelcomeScreen = () => {
   const router = useRouter();
   const { isDark } = useTheme();
+  const { user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Check if user is already authenticated
-  if (auth.currentUser) {
+  // Redirect if user is already authenticated
+  if (user) {
     return <Redirect href="/(tabs)" />;
+  }
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#0891b2" />
+      </View>
+    );
   }
 
   const handleEmailAuth = async () => {
@@ -43,11 +46,7 @@ const WelcomeScreen: React.FC = () => {
     setError(null);
 
     try {
-      if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-      }
+      await signInWithEmailAndPassword(auth, email, password);
       router.replace('/(tabs)');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed');
@@ -65,9 +64,9 @@ const WelcomeScreen: React.FC = () => {
         const provider = new GoogleAuthProvider();
         await signInWithPopup(auth, provider);
       } else {
-        // Native platforms
         await GoogleSignin.hasPlayServices();
         const signInResult = await GoogleSignin.signIn();
+        console.log('signInResult', signInResult);
         const { accessToken } = await GoogleSignin.getTokens();
         const credential = GoogleAuthProvider.credential(null, accessToken);
         await signInWithCredential(auth, credential);
@@ -91,7 +90,7 @@ const WelcomeScreen: React.FC = () => {
           Welcome to Spackl
         </Text>
         <Text style={[styles.subtitle, isDark && styles.textMuted]}>
-          {isSignUp ? 'Create an account to get started' : 'Sign in to continue'}
+          Sign in to continue
         </Text>
       </View>
 
@@ -102,6 +101,24 @@ const WelcomeScreen: React.FC = () => {
       )}
 
       <View style={styles.form}>
+        <Pressable
+          style={[styles.button, styles.googleButton]}
+          onPress={handleGoogleAuth}
+          disabled={isLoading}>
+          <View style={styles.googleIconPlaceholder}>
+            <Text style={styles.googleIconText}>G</Text>
+          </View>
+          <Text style={styles.googleButtonText}>
+            Continue with Google
+          </Text>
+        </Pressable>
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={[styles.dividerText, isDark && styles.textMuted]}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
         <View style={styles.inputGroup}>
           <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
             <Mail size={20} color={isDark ? '#94a3b8' : '#64748b'} />
@@ -139,38 +156,10 @@ const WelcomeScreen: React.FC = () => {
             <ActivityIndicator color="#ffffff" />
           ) : (
             <>
-              {isSignUp ? (
-                <UserPlus size={20} color="#ffffff" />
-              ) : (
-                <LogIn size={20} color="#ffffff" />
-              )}
-              <Text style={styles.buttonText}>
-                {isSignUp ? 'Sign Up' : 'Sign In'}
-              </Text>
+              <LogIn size={20} color="#ffffff" />
+              <Text style={styles.buttonText}>Sign In</Text>
             </>
           )}
-        </Pressable>
-
-        <Pressable
-          style={[styles.button, styles.googleButton]}
-          onPress={handleGoogleAuth}
-          disabled={isLoading}>
-          <View style={styles.googleIconPlaceholder}>
-            <Text style={styles.googleIconText}>G</Text>
-          </View>
-          <Text style={styles.googleButtonText}>
-            Continue with Google
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.switchButton}
-          onPress={() => setIsSignUp(!isSignUp)}>
-          <Text style={[styles.switchButtonText, isDark && styles.textMuted]}>
-            {isSignUp
-              ? 'Already have an account? Sign in'
-              : "Don't have an account? Sign up"}
-          </Text>
         </Pressable>
       </View>
     </View>
@@ -184,6 +173,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
     padding: 20,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   containerDark: {
     backgroundColor: '#0f172a',
@@ -222,6 +215,21 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 16,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 8,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e2e8f0',
+  },
+  dividerText: {
+    color: '#64748b',
+    fontFamily: 'Inter_400Regular',
   },
   inputGroup: {
     gap: 8,
@@ -284,15 +292,6 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
-  },
-  switchButton: {
-    alignItems: 'center',
-    padding: 8,
-  },
-  switchButtonText: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    color: '#64748b',
   },
   errorContainer: {
     backgroundColor: '#fee2e2',

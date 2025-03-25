@@ -6,7 +6,7 @@ import { NotificationContext } from '@/context/NotificationContext';
 import { testFirebaseConnection } from '@/utils/firebaseTest';
 import { useAuth } from '@/context/AuthContext';
 
-export default function SettingsScreen() {
+function Settings() {
   const { isDark, toggleTheme } = useTheme();
   const { isEnabled, toggleNotifications } = useContext(NotificationContext);
   const { signOut } = useAuth();
@@ -199,3 +199,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
+export default Settings;

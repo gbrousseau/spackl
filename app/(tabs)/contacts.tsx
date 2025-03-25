@@ -4,8 +4,9 @@ import * as Contacts from 'expo-contacts';
 import * as SMS from 'expo-sms';
 import { Share2, User, Search, X, Plus, Users as UsersIcon, CreditCard as Edit2, MessageCircle } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+
+const generateUniqueId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
 type Contact = {
   id: string;
@@ -13,7 +14,7 @@ type Contact = {
   email?: string;
   phoneNumbers?: Contacts.PhoneNumber[];
   imageAvailable?: boolean;
-  image?: Image;
+  image?: Contacts.Image;
   shared?: boolean;
 };
 
@@ -46,14 +47,14 @@ export default function ContactsScreen() {
             id: '1',
             name: 'Alice Johnson',
             email: 'alice@example.com',
-            phoneNumbers: [{ number: '+1 234 567 8900' }],
+            phoneNumbers: [{ number: '+1 234 567 8900', label: 'mobile' }],
             shared: false,
           },
           {
             id: '2',
             name: 'Bob Smith',
             email: 'bob@example.com',
-            phoneNumbers: [{ number: '+1 234 567 8901' }],
+            phoneNumbers: [{ number: '+1 234 567 8901', label: 'mobile' }],
             shared: false,
           },
         ]);
@@ -77,10 +78,10 @@ export default function ContactsScreen() {
       });
 
       // Only include contacts with phone numbers
-      const contactsWithPhones = data.filter(contact => 
+      const contactsWithPhones = data.filter(contact =>
         contact.phoneNumbers && contact.phoneNumbers.length > 0
       ).map(contact => ({
-        id: contact.id,
+        id: contact.id || generateUniqueId(),
         name: contact.name || 'No Name',
         email: contact.emails?.[0]?.email,
         phoneNumbers: contact.phoneNumbers,
@@ -112,23 +113,25 @@ export default function ContactsScreen() {
       }
 
       const phoneNumber = contact.phoneNumbers?.[0]?.number;
-      if (!phoneNumber) return;
+      if (!phoneNumber) {
+        return;
+      }
 
       const message = `Hey ${contact.name}! I'd like to share my Spackl calendar with you. Click here to accept: [App Link]`;
-      
+
       const { result } = await SMS.sendSMSAsync(
         [phoneNumber],
         message
       );
 
       if (result === 'sent') {
-        setContacts(prev => 
-          prev.map(c => 
+        setContacts(prev =>
+          prev.map(c =>
             c.id === contact.id ? { ...c, shared: true } : c
           )
         );
         setSharedCount(prev => prev + 1);
-        
+
         // Animate the FAB
         Animated.sequence([
           Animated.timing(fabAnim, {
@@ -154,8 +157,10 @@ export default function ContactsScreen() {
   };
 
   const filteredContacts = useMemo(() => {
-    if (!searchQuery.trim()) return contacts;
-    
+    if (!searchQuery.trim()) {
+      return contacts;
+    }
+
     const searchTerms = searchQuery.toLowerCase().trim().split(' ');
     return contacts.filter(contact => {
       const searchString = `${contact.name} ${contact.email || ''} ${contact.phoneNumbers?.[0]?.number || ''}`.toLowerCase();
@@ -220,7 +225,7 @@ export default function ContactsScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={[styles.contactCard, isDark && styles.contactCardDark]}>
-            <Pressable 
+            <Pressable
               onPress={() => handleAvatarPress(item)}
               style={styles.avatarContainer}>
               {item.imageAvailable && item.image ? (
@@ -239,7 +244,7 @@ export default function ContactsScreen() {
                 </Text>
               )}
             </View>
-            <Pressable 
+            <Pressable
               style={[
                 styles.shareButton,
                 item.shared && styles.shareButtonActive,
@@ -257,7 +262,7 @@ export default function ContactsScreen() {
       />
 
       {sharedCount > 0 && (
-        <Animated.View 
+        <Animated.View
           style={[
             styles.fab,
             {

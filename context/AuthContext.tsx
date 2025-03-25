@@ -30,8 +30,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged((user: User | null) => {
       setUser(user);
+      setLoading(false);
+    }, (error) => {
+      console.error('Auth state change error:', error);
       setLoading(false);
     });
 
@@ -42,9 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       await signIn(email, password);
-      router.replace('/(tabs)');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to sign in');
+      throw error;
     }
   };
 
@@ -52,9 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       await signUp(email, password);
-      router.replace('/(tabs)');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to sign up');
+      throw error;
     }
   };
 
@@ -62,13 +65,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       await signOut();
-      router.replace('/sign-in');
+      router.replace('/welcome' as any);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to sign out');
+      throw error;
     }
   };
 
   const clearError = () => setError(null);
+
+  if (loading) {
+    return null; // or a loading spinner component
+  }
 
   return (
     <AuthContext.Provider
