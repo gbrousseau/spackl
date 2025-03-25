@@ -113,7 +113,20 @@ export default function CalendarScreen() {
   const generateCalendarDays = () => {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
-    const days = eachDayOfInterval({ start, end });
+    
+    // Get the first day of the month (0 = Sunday, 1 = Monday, etc.)
+    const firstDayOfMonth = start.getDay();
+    
+    // Calculate the start date (including days from previous month)
+    const calendarStart = new Date(start);
+    calendarStart.setDate(calendarStart.getDate() - firstDayOfMonth);
+    
+    // Calculate the end date (including days from next month)
+    const calendarEnd = new Date(end);
+    const lastDayOfMonth = end.getDay();
+    calendarEnd.setDate(calendarEnd.getDate() + (6 - lastDayOfMonth));
+    
+    const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
     const weeks: Date[][] = [];
     let currentWeek: Date[] = [];
 

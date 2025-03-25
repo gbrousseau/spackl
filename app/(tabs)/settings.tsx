@@ -1,12 +1,25 @@
 import { View, Text, StyleSheet, ScrollView, Switch, Pressable, Platform } from 'react-native';
-import { Bell, Share, Lock, CircleHelp as HelpCircle, LogOut, Moon } from 'lucide-react-native';
+import { Bell, Share, Lock, CircleHelp as HelpCircle, LogOut, Moon, Database } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { NotificationContext } from '@/context/NotificationContext';
+import { testFirebaseConnection } from '@/utils/firebaseTest';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SettingsScreen() {
   const { isDark, toggleTheme } = useTheme();
   const { isEnabled, toggleNotifications } = useContext(NotificationContext);
+  const { signOut } = useAuth();
+  const [testResult, setTestResult] = useState<string>('');
+
+  const runFirebaseTest = async () => {
+    try {
+      const result = await testFirebaseConnection();
+      setTestResult(JSON.stringify(result, null, 2));
+    } catch (error) {
+      setTestResult(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
 
   return (
     <ScrollView style={[styles.container, isDark && styles.containerDark]}>
@@ -74,7 +87,27 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
 
-      <Pressable style={[styles.logoutButton, isDark && styles.logoutButtonDark]}>
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, isDark && styles.textLight]}>Developer</Text>
+        <Pressable 
+          style={[styles.settingItem, isDark && styles.settingItemDark]}
+          onPress={runFirebaseTest}
+        >
+          <View style={styles.settingContent}>
+            <Database size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+            <Text style={[styles.settingText, isDark && styles.textLight]}>Test Firebase Connection</Text>
+          </View>
+        </Pressable>
+        {testResult && (
+          <Text style={[styles.testResult, isDark && styles.textLight]}>
+            {testResult}
+          </Text>
+        )}
+      </View>
+
+      <Pressable 
+        style={[styles.logoutButton, isDark && styles.logoutButtonDark]}
+        onPress={signOut}>
         <LogOut size={20} color="#ef4444" />
         <Text style={styles.logoutText}>Log Out</Text>
       </Pressable>
@@ -154,5 +187,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ef4444',
     marginLeft: 8,
+  },
+  testResult: {
+    fontFamily: 'monospace',
+    fontSize: 14,
+    color: '#0f172a',
+    padding: 16,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
   },
 });

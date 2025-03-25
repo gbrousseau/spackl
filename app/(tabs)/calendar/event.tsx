@@ -1,39 +1,147 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, Pressable, Platform, Image, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Calendar from 'expo-calendar';
 import * as Contacts from 'expo-contacts';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, addDays } from 'date-fns';
-import { Calendar as CalendarIcon, Clock, MapPin, Users, Save, Trash2, Search, X, UserPlus, User, ChevronDown } from 'lucide-react-native';
+import { Calendar as CalendarIcon, Clock, Users, Save, Trash2, Search, X, UserPlus, User, ChevronDown } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useCalendar } from '@/context/CalendarContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { LocationAutocomplete } from '@/components/LocationAutocomplete';
+import { Image as ContactImage } from 'expo-contacts';
 
-type Participant = {
-  id: string;
+// Helper function to generate unique IDs
+const generateUniqueId = () => {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+};
+
+interface CalendarAttendee {
+  id?: string;
   name: string;
   email?: string;
   imageAvailable?: boolean;
-  image?: { uri: string };
+  image?: ContactImage;
+}
+
+interface Participant {
+  id: string;
+  name: string;
+  email: string;
+  imageAvailable?: boolean;
+  image?: ContactImage;
+}
+
+interface CalendarEventDetails {
+  id?: string;
+  title: string;
+  startDate: Date;
+  endDate: Date;
+  location: string;
+  notes: string;
+  attendees?: CalendarAttendee[];
+}
+
+interface Event {
+  id?: string;
+  title: string;
+  startDate: Date;
+  endDate: Date;
+  location: string;
+  notes: string;
+  organizer: {
+    name: string;
+    email: string;
+  };
+  attendees: Participant[];
+}
+
+interface LocationAutocompleteProps {
+  value: string;
+  onLocationSelect: (location: string) => void;
+  isDark: boolean;
+  disabled: boolean;
+}
+
+// Add this after the existing interfaces
+interface ExpoCalendarEvent {
+  id: string;
+  title: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  location?: string;
+  notes?: string;
+  attendees?: Array<{
+    name?: string;
+    email?: string;
+  }>;
+}
+
+// Update the getEventDetails function
+const getEventDetails = async (eventId: string): Promise<CalendarEventDetails> => {
+  if (Platform.OS === 'web') {
+    // Return sample data for web platform
+    return {
+      id: eventId,
+      title: 'Sample Event',
+      startDate: new Date(),
+      endDate: addDays(new Date(), 1),
+      location: 'Sample Location',
+      notes: 'Sample Notes',
+      attendees: [{
+        id: '1',
+        name: 'Alice Johnson',
+        email: 'alice@example.com',
+      }],
+    };
+  }
+
+  const { status } = await Calendar.requestCalendarPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error('Calendar permission was denied');
+  }
+
+  const event = await Calendar.getEventAsync(eventId) as ExpoCalendarEvent;
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  return {
+    id: event.id,
+    title: event.title || '',
+    startDate: new Date(event.startDate),
+    endDate: new Date(event.endDate),
+    location: event.location || '',
+    notes: event.notes || '',
+    attendees: event.attendees?.map(attendee => ({
+      id: generateUniqueId(),
+      name: attendee.name || '',
+      email: attendee.email || '',
+    })) || [],
+  };
 };
 
 export default function EventScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
-  const { refreshEvents } = useCalendar();
+  const { refreshEvents, currentUser } = useCalendar();
   const { sendEventNotification } = useNotifications();
   const params = useLocalSearchParams();
   const id = typeof params.id === 'string' ? params.id : null;
   const calendarId = typeof params.calendarId === 'string' ? params.calendarId : null;
   
-  const [event, setEvent] = useState({
+  const [event, setEvent] = useState<Event>({
     title: '',
     startDate: new Date(),
     endDate: addDays(new Date(), 1),
     location: '',
     notes: '',
+    organizer: {
+      name: '',
+      email: '',
+    },
+    attendees: [],
   });
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [showContactPicker, setShowContactPicker] = useState(false);
@@ -42,6 +150,9 @@ export default function EventScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Check if current user is the event creator
+  const isCreator = event.organizer?.email === currentUser.email;
+
   // Date picker states
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
@@ -49,81 +160,42 @@ export default function EventScreen() {
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
   const loadEvent = async () => {
-    if (!id || !calendarId) {
-      setLoading(false);
-      return;
-    }
-
-    if (Platform.OS === 'web') {
-      setEvent({
-        title: 'Sample Event',
-        startDate: new Date(),
-        endDate: addDays(new Date(), 1),
-        location: 'Sample Location',
-        notes: 'Sample Notes',
-      });
-      setParticipants([
-        {
-          id: '1',
-          name: 'Alice Johnson',
-          email: 'alice@example.com',
-        },
-      ]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const { status } = await Calendar.requestCalendarPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Calendar permission was denied');
-        return;
-      }
-
-      // First check if the calendar exists
-      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-      const calendar = calendars.find(cal => cal.id === calendarId);
-      
-      if (!calendar) {
-        setError('Calendar not found');
-        setLoading(false);
-        return;
-      }
-
+    if (id) {
       try {
-        const eventDetails = await Calendar.getEventAsync(id);
+        setLoading(true);
+        const eventDetails: CalendarEventDetails = await getEventDetails(id);
         
-        if (!eventDetails) {
-          setError('Event not found');
-          router.back(); // Navigate back if event doesn't exist
-          return;
-        }
+        const convertedAttendees: Participant[] = (eventDetails.attendees || []).map(attendee => ({
+          id: attendee.id || generateUniqueId(),
+          name: attendee.name,
+          email: attendee.email || '',
+          imageAvailable: attendee.imageAvailable,
+          image: attendee.image,
+        }));
 
         setEvent({
-          title: eventDetails.title,
-          startDate: new Date(eventDetails.startDate),
-          endDate: new Date(eventDetails.endDate),
+          id: eventDetails.id,
+          title: eventDetails.title || '',
+          startDate: eventDetails.startDate || new Date(),
+          endDate: eventDetails.endDate || addDays(new Date(), 1),
           location: eventDetails.location || '',
           notes: eventDetails.notes || '',
+          organizer: {
+            name: eventDetails.attendees?.[0]?.name || '',
+            email: eventDetails.attendees?.[0]?.email || '',
+          },
+          attendees: convertedAttendees,
         });
 
         if (eventDetails.attendees) {
-          setParticipants(eventDetails.attendees.map(attendee => ({
-            id: attendee.email || attendee.name,
-            name: attendee.name || attendee.email || '',
-            email: attendee.email,
-          })));
+          setParticipants(convertedAttendees);
         }
-      } catch (eventErr) {
-        console.error('Error loading event:', eventErr);
-        setError('Event not found');
-        router.back(); // Navigate back if event doesn't exist
+      } catch (error) {
+        console.error('Error loading event:', error);
+        setError('Failed to load event details');
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError('Failed to load event details');
-      console.error('Error loading event:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -145,27 +217,18 @@ export default function EventScreen() {
     }
 
     try {
-      const { status } = await Contacts.requestPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Contacts permission was denied');
-        return;
-      }
-
-      const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.Emails, Contacts.Fields.Image],
-      });
-
-      const formattedContacts = data.map(contact => ({
-        id: contact.id,
-        name: contact.name || 'No Name',
-        email: contact.emails?.[0]?.email,
+      const { data } = await Contacts.getContactsAsync();
+      const formattedContacts: Participant[] = data.map(contact => ({
+        id: contact.id || generateUniqueId(), // Add a helper function to generate unique IDs
+        name: contact.name || '',
+        email: contact.emails?.[0]?.email || '',
         imageAvailable: contact.imageAvailable,
         image: contact.image,
       }));
-
       setContacts(formattedContacts);
-    } catch (err) {
-      console.error('Error loading contacts:', err);
+    } catch (error) {
+      console.error('Error loading contacts:', error);
+      setError('Failed to load contacts');
     }
   };
 
@@ -413,11 +476,17 @@ export default function EventScreen() {
         <View style={styles.inputGroup}>
           <Text style={[styles.label, isDark && styles.textLight]}>Event Title</Text>
           <TextInput
-            style={[styles.input, isDark && styles.inputDark, isDark && styles.textLight]}
+            style={[
+              styles.input,
+              isDark && styles.inputDark,
+              isDark && styles.textLight,
+              !isCreator && styles.readOnlyInput
+            ]}
             value={event.title}
-            onChangeText={(text) => setEvent({ ...event, title: text })}
+            onChangeText={(text) => isCreator && setEvent({ ...event, title: text })}
             placeholder="Enter event title"
             placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
+            editable={isCreator}
           />
         </View>
 
@@ -426,22 +495,24 @@ export default function EventScreen() {
             <Text style={[styles.label, isDark && styles.textLight]}>Start</Text>
             <View style={[styles.dateTimeContainer, isDark && styles.dateTimeContainerDark]}>
               <Pressable
-                style={styles.dateTimePicker}
-                onPress={() => setShowStartDatePicker(true)}>
+                style={[styles.dateTimePicker, !isCreator && styles.readOnlyPressable]}
+                onPress={() => isCreator && setShowStartDatePicker(true)}
+                disabled={!isCreator}>
                 <CalendarIcon size={20} color={isDark ? '#94a3b8' : '#64748b'} />
                 <Text style={[styles.dateTimeText, isDark && styles.textLight]}>
                   {format(event.startDate, 'MMM d, yyyy')}
                 </Text>
-                <ChevronDown size={16} color={isDark ? '#94a3b8' : '#64748b'} />
+                {isCreator && <ChevronDown size={16} color={isDark ? '#94a3b8' : '#64748b'} />}
               </Pressable>
               <Pressable
-                style={[styles.dateTimePicker, styles.timePickerBorder]}
-                onPress={() => setShowStartTimePicker(true)}>
+                style={[styles.dateTimePicker, styles.timePickerBorder, !isCreator && styles.readOnlyPressable]}
+                onPress={() => isCreator && setShowStartTimePicker(true)}
+                disabled={!isCreator}>
                 <Clock size={20} color={isDark ? '#94a3b8' : '#64748b'} />
                 <Text style={[styles.dateTimeText, isDark && styles.textLight]}>
                   {format(event.startDate, 'h:mm a')}
                 </Text>
-                <ChevronDown size={16} color={isDark ? '#94a3b8' : '#64748b'} />
+                {isCreator && <ChevronDown size={16} color={isDark ? '#94a3b8' : '#64748b'} />}
               </Pressable>
             </View>
             {renderDateTimePicker(true, true, showStartDatePicker, onStartDateChange)}
@@ -452,22 +523,24 @@ export default function EventScreen() {
             <Text style={[styles.label, isDark && styles.textLight]}>End</Text>
             <View style={[styles.dateTimeContainer, isDark && styles.dateTimeContainerDark]}>
               <Pressable
-                style={styles.dateTimePicker}
-                onPress={() => setShowEndDatePicker(true)}>
+                style={[styles.dateTimePicker, !isCreator && styles.readOnlyPressable]}
+                onPress={() => isCreator && setShowEndDatePicker(true)}
+                disabled={!isCreator}>
                 <CalendarIcon size={20} color={isDark ? '#94a3b8' : '#64748b'} />
                 <Text style={[styles.dateTimeText, isDark && styles.textLight]}>
                   {format(event.endDate, 'MMM d, yyyy')}
                 </Text>
-                <ChevronDown size={16} color={isDark ? '#94a3b8' : '#64748b'} />
+                {isCreator && <ChevronDown size={16} color={isDark ? '#94a3b8' : '#64748b'} />}
               </Pressable>
               <Pressable
-                style={[styles.dateTimePicker, styles.timePickerBorder]}
-                onPress={() => setShowEndTimePicker(true)}>
+                style={[styles.dateTimePicker, styles.timePickerBorder, !isCreator && styles.readOnlyPressable]}
+                onPress={() => isCreator && setShowEndTimePicker(true)}
+                disabled={!isCreator}>
                 <Clock size={20} color={isDark ? '#94a3b8' : '#64748b'} />
                 <Text style={[styles.dateTimeText, isDark && styles.textLight]}>
                   {format(event.endDate, 'h:mm a')}
                 </Text>
-                <ChevronDown size={16} color={isDark ? '#94a3b8' : '#64748b'} />
+                {isCreator && <ChevronDown size={16} color={isDark ? '#94a3b8' : '#64748b'} />}
               </Pressable>
             </View>
             {renderDateTimePicker(false, true, showEndDatePicker, onEndDateChange)}
@@ -479,8 +552,9 @@ export default function EventScreen() {
           <Text style={[styles.label, isDark && styles.textLight]}>Location</Text>
           <LocationAutocomplete
             value={event.location}
-            onLocationSelect={(location) => setEvent({ ...event, location })}
+            onLocationSelect={(location) => isCreator && setEvent({ ...event, location })}
             isDark={isDark}
+            disabled={!isCreator}
           />
         </View>
 
@@ -526,7 +600,9 @@ export default function EventScreen() {
           ) : (
             <View style={[styles.noParticipants, isDark && styles.noParticipantsDark]}>
               <Users size={24} color={isDark ? '#94a3b8' : '#64748b'} />
-              <Text style={[styles.noParticipantsText, isDark && styles.textMuted]}>No participants added</Text>
+              <Text style={[styles.noParticipantsText, isDark && styles.textMuted]}>
+                No participants added yet
+              </Text>
             </View>
           )}
         </View>
@@ -580,19 +656,26 @@ export default function EventScreen() {
         <View style={styles.inputGroup}>
           <Text style={[styles.label, isDark && styles.textLight]}>Notes</Text>
           <TextInput
-            style={[styles.input, styles.textArea, isDark && styles.inputDark, isDark && styles.textLight]}
+            style={[
+              styles.input,
+              styles.textArea,
+              isDark && styles.inputDark,
+              isDark && styles.textLight,
+              !isCreator && styles.readOnlyInput
+            ]}
             value={event.notes}
-            onChangeText={(text) => setEvent({ ...event, notes: text })}
+            onChangeText={(text) => isCreator && setEvent({ ...event, notes: text })}
             placeholder="Add notes"
             placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
+            editable={isCreator}
           />
         </View>
 
         <View style={styles.buttonContainer}>
-          {id && (
+          {id && isCreator && (
             <Pressable 
               style={[styles.deleteButton, isDark && styles.deleteButtonDark]} 
               onPress={handleDeleteEvent}>
@@ -601,12 +684,21 @@ export default function EventScreen() {
             </Pressable>
           )}
 
-          <Pressable 
-            style={styles.saveButton} 
-            onPress={handleSaveEvent}>
-            <Save size={20} color="#ffffff" />
-            <Text style={styles.saveButtonText}>Save Changes</Text>
-          </Pressable>
+          {isCreator ? (
+            <Pressable 
+              style={styles.saveButton} 
+              onPress={handleSaveEvent}>
+              <Save size={20} color="#ffffff" />
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            </Pressable>
+          ) : (
+            <Pressable 
+              style={styles.saveButton} 
+              onPress={handleSaveEvent}>
+              <Save size={20} color="#ffffff" />
+              <Text style={styles.saveButtonText}>Update Attendance</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </ScrollView>
@@ -918,5 +1010,13 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: '#94a3b8',
-  }
+  },
+  readOnlyInput: {
+    opacity: 0.7,
+    backgroundColor: '#f1f5f9',
+  },
+  readOnlyPressable: {
+    opacity: 0.7,
+    backgroundColor: '#f1f5f9',
+  },
 });

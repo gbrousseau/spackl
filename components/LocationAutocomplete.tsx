@@ -9,6 +9,7 @@ interface LocationAutocompleteProps {
   onLocationSelect: (location: string) => void;
   placeholder?: string;
   isDark?: boolean;
+  disabled: boolean;
 }
 
 interface Suggestion {
@@ -21,6 +22,7 @@ export function LocationAutocomplete({
   onLocationSelect,
   placeholder = 'Enter location',
   isDark = false,
+  disabled,
 }: LocationAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -141,12 +143,18 @@ export function LocationAutocomplete({
         <MapPin size={20} color={isDark ? '#94a3b8' : '#64748b'} />
         <TextInput
           ref={inputRef}
-          style={[styles.input, isDark && styles.textLight]}
+          style={[
+            styles.input,
+            isDark && styles.inputDark,
+            isDark && styles.textLight,
+            disabled && styles.inputDisabled,
+          ]}
           value={inputValue}
-          onChangeText={handleInputChange}
+          onChangeText={(text) => !disabled && handleInputChange(text)}
           placeholder={placeholder}
           placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
           onFocus={() => setShowSuggestions(true)}
+          editable={!disabled}
         />
         {inputValue.length > 0 ? (
           <Pressable onPress={handleClear} style={styles.clearButton}>
@@ -156,7 +164,7 @@ export function LocationAutocomplete({
           <Pressable 
             onPress={getCurrentLocation} 
             style={styles.locationButton}
-            disabled={isLoadingLocation}>
+            disabled={isLoadingLocation || disabled}>
             {isLoadingLocation ? (
               <ActivityIndicator size="small" color={isDark ? '#94a3b8' : '#64748b'} />
             ) : (
@@ -220,6 +228,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 16,
     color: '#0f172a',
+  },
+  inputDark: {
+    color: '#f8fafc',
   },
   clearButton: {
     padding: 4,
@@ -287,5 +298,9 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: '#f8fafc',
+  },
+  inputDisabled: {
+    opacity: 0.7,
+    backgroundColor: '#f1f5f9',
   },
 });
