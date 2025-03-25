@@ -7,13 +7,15 @@ import { useTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
+const generateUniqueId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
+
 type Contact = {
   id: string;
   name: string;
   email?: string;
   phoneNumbers?: Contacts.PhoneNumber[];
   imageAvailable?: boolean;
-  image?: Image;
+  image?: Contacts.Image;
   shared?: boolean;
 };
 
@@ -46,14 +48,14 @@ export default function ContactsScreen() {
             id: '1',
             name: 'Alice Johnson',
             email: 'alice@example.com',
-            phoneNumbers: [{ number: '+1 234 567 8900' }],
+            phoneNumbers: [{ number: '+1 234 567 8900', label: 'mobile' }],
             shared: false,
           },
           {
             id: '2',
             name: 'Bob Smith',
             email: 'bob@example.com',
-            phoneNumbers: [{ number: '+1 234 567 8901' }],
+            phoneNumbers: [{ number: '+1 234 567 8901', label: 'mobile' }],
             shared: false,
           },
         ]);
@@ -80,7 +82,7 @@ export default function ContactsScreen() {
       const contactsWithPhones = data.filter(contact => 
         contact.phoneNumbers && contact.phoneNumbers.length > 0
       ).map(contact => ({
-        id: contact.id,
+        id: contact.id || generateUniqueId(),
         name: contact.name || 'No Name',
         email: contact.emails?.[0]?.email,
         phoneNumbers: contact.phoneNumbers,
@@ -220,7 +222,7 @@ export default function ContactsScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={[styles.contactCard, isDark && styles.contactCardDark]}>
-            <Pressable 
+            <Pressable
               onPress={() => handleAvatarPress(item)}
               style={styles.avatarContainer}>
               {item.imageAvailable && item.image ? (
@@ -239,7 +241,7 @@ export default function ContactsScreen() {
                 </Text>
               )}
             </View>
-            <Pressable 
+            <Pressable
               style={[
                 styles.shareButton,
                 item.shared && styles.shareButtonActive,

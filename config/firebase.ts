@@ -1,8 +1,24 @@
 import { initializeApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth/react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { Platform } from 'react-native';
 
+let GoogleSignin: any;
+if (Platform.OS !== 'web') {
+  try {
+    // @ts-ignore
+    GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID,
+      iosClientId: process.env.EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID,
+      offlineAccess: true,
+    });
+  } catch (error) {
+    console.warn('Failed to initialize Google Sign-In:', error);
+  }
+}
+
+// Initialize Firebase
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -12,22 +28,14 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Check if environment variables are set
-Object.entries(firebaseConfig).forEach(([key, value]) => {
-  if (!value) {
-    console.error(`Firebase configuration error: ${key} is not set in environment variables`);
-  }
-});
-
-// Initialize Firebase
+// Initialize Firebase app
 const app = initializeApp(firebaseConfig);
 
-// Initialize Auth with AsyncStorage persistence
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage)
-});
+// Initialize Auth
+export const auth = getAuth(app);
 
-// Initialize Cloud Firestore
+// Initialize Cloud Firestore Database
 export const db = getFirestore(app);
 
-export default app;
+export { GoogleSignin };
+export default app; 

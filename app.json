@@ -16,7 +16,15 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": ["expo-router"],
+    "expo": {
+      "android": {
+        "package": "com.spackl.app",
+        "googleServicesFile": "./google-services.json"
+      }
+    },
+    "plugins": [
+      "expo-router"
+    ],
     "experiments": {
       "typedRoutes": true,
       "tsconfigPaths": true

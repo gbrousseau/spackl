@@ -1,37 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Platform, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Calendar from 'expo-calendar';
-import { format, parseISO, startOfDay, endOfDay, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, isPast } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, isPast } from 'date-fns';
 import { Calendar as CalendarIcon, MapPin, Users, Plus, CircleAlert as AlertCircle, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useCalendar } from '@/context/CalendarContext';
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  startDate: string | Date;
-  endDate: string | Date;
-  allDay?: boolean;
-  location?: string;
-  notes?: string;
-  url?: string;
-  timeZone?: string;
-  organizer?: {
-    name?: string;
-    email?: string;
-  };
-  attendees?: Array<{
-    name?: string;
-    email?: string;
-    role?: string;
-    status?: string;
-  }>;
-  calendarId: string;
-  availability?: 'busy' | 'free' | 'tentative';
-  status?: 'confirmed' | 'tentative' | 'cancelled';
-  recurrenceRule?: string;
-}
+import type { CalendarEvent } from '@/types/calendar';
 
 export default function CalendarScreen() {
   const router = useRouter();
@@ -69,7 +43,7 @@ export default function CalendarScreen() {
   };
 
   const renderCalendarDay = useCallback((date: Date) => {
-    const dayEvents = events.filter(event => 
+    const dayEvents = events.filter(event =>
       isSameDay(new Date(event.startDate), date)
     );
     const isSelected = isSameDay(date, selectedDate);
@@ -113,7 +87,20 @@ export default function CalendarScreen() {
   const generateCalendarDays = () => {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
-    const days = eachDayOfInterval({ start, end });
+
+    // Get the first day of the month (0 = Sunday, 1 = Monday, etc.)
+    const firstDayOfMonth = start.getDay();
+
+    // Calculate the start date (including days from previous month)
+    const calendarStart = new Date(start);
+    calendarStart.setDate(calendarStart.getDate() - firstDayOfMonth);
+
+    // Calculate the end date (including days from next month)
+    const calendarEnd = new Date(end);
+    const lastDayOfMonth = end.getDay();
+    calendarEnd.setDate(calendarEnd.getDate() + (6 - lastDayOfMonth));
+
+    const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
     const weeks: Date[][] = [];
     let currentWeek: Date[] = [];
 
@@ -157,7 +144,7 @@ export default function CalendarScreen() {
     );
   }
 
-  const selectedDateEvents = events.filter(event => 
+  const selectedDateEvents = events.filter(event =>
     isSameDay(new Date(event.startDate), selectedDate)
   );
 
@@ -177,16 +164,16 @@ export default function CalendarScreen() {
               <Plus size={24} color="#ffffff" />
             </Pressable>
           </View>
-          
+
           <View style={styles.headerCenter}>
             <Text style={[styles.selectedMonth, isDark && styles.textLight]}>
               {format(selectedDate, 'MMMM yyyy')}
             </Text>
-            <Text style={[styles.selectedDay, isDark && styles.textMuted]}>
+            <Text style={[styles.selectedDateText, isDark && styles.textMuted]}>
               {format(selectedDate, 'EEEE, d')}
             </Text>
           </View>
-          
+
           <View style={styles.headerRight} />
         </View>
 
@@ -230,7 +217,7 @@ export default function CalendarScreen() {
                   <View style={styles.eventMetaInfo}>
                     <Users size={16} color={isDark ? '#94a3b8' : '#64748b'} />
                     <Text style={[styles.eventParticipants, isDark && styles.textMuted]}>
-                      {event.attendees?.length 
+                      {event.attendees?.length
                         ? `${event.attendees.length} participant${event.attendees.length === 1 ? '' : 's'}`
                         : 'No participants'}
                     </Text>
@@ -563,7 +550,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#0f172a',
   },
-  selectedDay: {
+  selectedDateText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 16,
     color: '#64748b',

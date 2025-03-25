@@ -11,3 +11,4 @@ import { useCalendar } from '@/context/CalendarContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { LocationAutocomplete } from '@/components/LocationAutocomplete';
 import { Image as ContactImage } from 'expo-contacts';
+

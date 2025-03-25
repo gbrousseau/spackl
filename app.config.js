@@ -7,7 +7,7 @@ export default {
       [
         '@react-native-google-signin/google-signin',
         {
-          iosUrlScheme: process.env.EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID?.split('.').reverse().join('.'),
+          iosUrlScheme: `com.googleusercontent.apps.${process.env.EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID}`
         }
       ],
       [
@@ -49,5 +49,9 @@ export default {
         projectId: 'your-project-id',
       },
     },
+    experiments: {
+      tsconfigPaths: true,
+      newArchEnabled: true
+    }
   }
-};
+}; 
