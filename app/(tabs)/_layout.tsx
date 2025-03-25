@@ -24,7 +24,7 @@ export default function TabLayout() {
         },
       }}>
       <Tabs.Screen
-        name="index"
+        name="calendar"
         options={{
           title: 'Calendar',
           tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
@@ -38,7 +38,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="calendar/event"
+        name="new-event"
         options={{
           title: 'New Event',
           tabBarIcon: ({ color, size }) => <PlusCircle size={size} color={color} />,
