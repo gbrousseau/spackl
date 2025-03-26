@@ -9,21 +9,30 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.spackl.app",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "expo": {
-      "android": {
-        "package": "com.spackl.app",
-        "googleServicesFile": "./google-services.json"
-      }
+    "android": {
+      "package": "com.spackl.app",
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      ["@react-native-firebase/app", {
+        "android_package_name": "com.spackl.app",
+        "ios_bundle_id": "com.spackl.app"
+      }],
+      ["@react-native-firebase/auth", {
+        "android_package_name": "com.spackl.app",
+        "ios_bundle_id": "com.spackl.app"
+      }],
+      ["@react-native-google-signin/google-signin"]
     ],
     "experiments": {
       "typedRoutes": true,

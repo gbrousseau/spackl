@@ -1,5 +1,10 @@
 import { Tabs } from 'expo-router';
-import { Calendar, Users, CirclePlus as PlusCircle, Settings } from 'lucide-react-native';
+import {
+  Calendar,
+  Users,
+  CirclePlus as PlusCircle,
+  Settings,
+} from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 
 export default function TabLayout() {
@@ -22,12 +27,15 @@ export default function TabLayout() {
         headerTitleStyle: {
           color: isDark ? '#f8fafc' : '#0f172a',
         },
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="calendar"
         options={{
           title: 'Calendar',
-          tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Calendar size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -41,14 +49,18 @@ export default function TabLayout() {
         name="new-event"
         options={{
           title: 'New Event',
-          tabBarIcon: ({ color, size }) => <PlusCircle size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <PlusCircle size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Settings size={size} color={color} />
+          ),
         }}
       />
     </Tabs>

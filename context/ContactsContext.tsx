@@ -49,7 +49,9 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             name: 'Alice Johnson',
             email: 'alice@example.com',
             phoneNumbers: [{ number: '+1 234 567 8900' }],
-            image: { uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80' },
+            image: {
+              uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+            },
             shared: false,
           },
           {
@@ -57,7 +59,9 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
             name: 'Bob Smith',
             email: 'bob@example.com',
             phoneNumbers: [{ number: '+1 234 567 8901' }],
-            image: { uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80' },
+            image: {
+              uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+            },
             shared: false,
           },
         ];
@@ -81,8 +85,10 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
 
       // Only include contacts with phone numbers
       const contactsWithPhones = data
-        .filter(contact => contact.phoneNumbers && contact.phoneNumbers.length > 0)
-        .map(contact => ({
+        .filter(
+          (contact) => contact.phoneNumbers && contact.phoneNumbers.length > 0,
+        )
+        .map((contact) => ({
           id: contact.id,
           name: contact.name || 'No Name',
           email: contact.emails?.[0]?.email,
@@ -96,7 +102,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
       const sharedStatuses = await AsyncStorage.getItem('shared_contacts');
       const sharedContactIds = sharedStatuses ? JSON.parse(sharedStatuses) : [];
 
-      const contactsWithSharedStatus = contactsWithPhones.map(contact => ({
+      const contactsWithSharedStatus = contactsWithPhones.map((contact) => ({
         ...contact,
         shared: sharedContactIds.includes(contact.id),
       }));
@@ -111,7 +117,7 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getContact = (id: string) => {
-    return contacts.find(contact => contact.id === id);
+    return contacts.find((contact) => contact.id === id);
   };
 
   const refreshContacts = async () => {
@@ -125,14 +131,16 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <ContactsContext.Provider value={{
-      contacts,
-      loading,
-      error,
-      getContact,
-      refreshContacts,
-      clearError,
-    }}>
+    <ContactsContext.Provider
+      value={{
+        contacts,
+        loading,
+        error,
+        getContact,
+        refreshContacts,
+        clearError,
+      }}
+    >
       {children}
     </ContactsContext.Provider>
   );

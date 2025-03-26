@@ -7,7 +7,9 @@ export default function CalendarScreen() {
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
-      <Text style={[styles.text, isDark && styles.textLight]}>Calendar View</Text>
+      <Text style={[styles.text, isDark && styles.textLight]}>
+        Calendar View
+      </Text>
     </View>
   );
 }
@@ -28,4 +30,4 @@ const styles = StyleSheet.create({
   textLight: {
     color: '#f8fafc',
   },
-}); 
+});

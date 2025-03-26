@@ -8,11 +8,14 @@ type NotificationContextType = {
   isEnabled: boolean;
   toggleNotifications: () => Promise<void>;
   requestPermissions: () => Promise<boolean>;
-  sendEventNotification: (participants: { name: string; email?: string }[], eventDetails: {
-    title: string;
-    startDate: Date;
-    location?: string;
-  }) => Promise<void>;
+  sendEventNotification: (
+    participants: { name: string; email?: string }[],
+    eventDetails: {
+      title: string;
+      startDate: Date;
+      location?: string;
+    },
+  ) => Promise<void>;
 };
 
 const NotificationContext = createContext<NotificationContextType>({
@@ -30,7 +33,11 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export function NotificationProvider({ children }: { children: React.ReactNode }) {
+export function NotificationProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [isEnabled, setIsEnabled] = useState(false);
 
   useEffect(() => {
@@ -84,19 +91,25 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   };
 
-  const sendEventNotification = async (participants: { name: string; email?: string }[], eventDetails: {
-    title: string;
-    startDate: Date;
-    location?: string;
-  }) => {
+  const sendEventNotification = async (
+    participants: { name: string; email?: string }[],
+    eventDetails: {
+      title: string;
+      startDate: Date;
+      location?: string;
+    },
+  ) => {
     if (!isEnabled || Platform.OS === 'web') {
       return;
     }
 
     try {
-      const formattedDate = format(eventDetails.startDate, 'MMM d, yyyy h:mm a');
-      const participantNames = participants.map(p => p.name).join(', ');
-      
+      const formattedDate = format(
+        eventDetails.startDate,
+        'MMM d, yyyy h:mm a',
+      );
+      const participantNames = participants.map((p) => p.name).join(', ');
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: `Event Update: ${eventDetails.title}`,
@@ -107,7 +120,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       });
 
       // Schedule a reminder notification 30 minutes before the event
-      const reminderTime = new Date(eventDetails.startDate.getTime() - 30 * 60000);
+      const reminderTime = new Date(
+        eventDetails.startDate.getTime() - 30 * 60000,
+      );
       if (reminderTime > new Date()) {
         await Notifications.scheduleNotificationAsync({
           content: {
@@ -126,12 +141,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   return (
-    <NotificationContext.Provider value={{
-      isEnabled,
-      toggleNotifications,
-      requestPermissions,
-      sendEventNotification,
-    }}>
+    <NotificationContext.Provider
+      value={{
+        isEnabled,
+        toggleNotifications,
+        requestPermissions,
+        sendEventNotification,
+      }}
+    >
       {children}
     </NotificationContext.Provider>
   );
@@ -139,4 +156,4 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
 export const useNotifications = () => useContext(NotificationContext);
 
-export { NotificationContext }
+export { NotificationContext };

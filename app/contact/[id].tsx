@@ -1,7 +1,23 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Image, Pressable, ScrollView, TextInput, Modal, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Pressable,
+  ScrollView,
+  TextInput,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { User, UserPlus, X, Users as UsersIcon, Plus } from 'lucide-react-native';
+import {
+  User,
+  UserPlus,
+  X,
+  Users as UsersIcon,
+  Plus,
+} from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useGroups, Group } from '@/context/GroupContext';
 import { useContacts } from '@/context/ContactsContext';
@@ -10,7 +26,13 @@ export default function ContactProfileScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { isDark } = useTheme();
-  const { groups, addGroup, addMemberToGroup, removeMemberFromGroup, getContactGroups } = useGroups();
+  const {
+    groups,
+    addGroup,
+    addMemberToGroup,
+    removeMemberFromGroup,
+    getContactGroups,
+  } = useGroups();
   const { getContact, loading, error } = useContacts();
   const [showAddToGroup, setShowAddToGroup] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -52,9 +74,7 @@ export default function ContactProfileScreen() {
         <Text style={[styles.errorText, isDark && styles.textLight]}>
           {error || 'Contact not found'}
         </Text>
-        <Pressable
-          style={styles.backButton}
-          onPress={() => router.back()}>
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </Pressable>
       </View>
@@ -67,7 +87,9 @@ export default function ContactProfileScreen() {
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <X size={24} color={isDark ? '#94a3b8' : '#64748b'} />
         </Pressable>
-        <Text style={[styles.headerTitle, isDark && styles.textLight]}>Contact Profile</Text>
+        <Text style={[styles.headerTitle, isDark && styles.textLight]}>
+          Contact Profile
+        </Text>
       </View>
 
       <ScrollView style={styles.content}>
@@ -75,13 +97,22 @@ export default function ContactProfileScreen() {
           {contact.image ? (
             <Image source={contact.image} style={styles.profileImage} />
           ) : (
-            <View style={[styles.profileImagePlaceholder, isDark && styles.placeholderDark]}>
+            <View
+              style={[
+                styles.profileImagePlaceholder,
+                isDark && styles.placeholderDark,
+              ]}
+            >
               <User size={40} color={isDark ? '#94a3b8' : '#64748b'} />
             </View>
           )}
-          <Text style={[styles.name, isDark && styles.textLight]}>{contact.name}</Text>
+          <Text style={[styles.name, isDark && styles.textLight]}>
+            {contact.name}
+          </Text>
           {contact.email && (
-            <Text style={[styles.email, isDark && styles.textMuted]}>{contact.email}</Text>
+            <Text style={[styles.email, isDark && styles.textMuted]}>
+              {contact.email}
+            </Text>
           )}
           {contact.phoneNumbers?.[0] && (
             <Text style={[styles.phone, isDark && styles.textMuted]}>
@@ -92,30 +123,44 @@ export default function ContactProfileScreen() {
 
         <View style={[styles.section, isDark && styles.sectionDark]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>Groups</Text>
+            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+              Groups
+            </Text>
             <Pressable
               style={styles.addButton}
-              onPress={() => setShowAddToGroup(true)}>
+              onPress={() => setShowAddToGroup(true)}
+            >
               <UserPlus size={20} color="#0891b2" />
               <Text style={styles.addButtonText}>Add to Group</Text>
             </Pressable>
           </View>
 
           {contactGroups.length > 0 ? (
-            contactGroups.map(group => (
-              <View key={group.id} style={[styles.groupItem, isDark && styles.groupItemDark]}>
+            contactGroups.map((group) => (
+              <View
+                key={group.id}
+                style={[styles.groupItem, isDark && styles.groupItemDark]}
+              >
                 <View style={styles.groupInfo}>
                   <UsersIcon size={20} color={isDark ? '#94a3b8' : '#64748b'} />
                   <View style={styles.groupDetails}>
-                    <Text style={[styles.groupName, isDark && styles.textLight]}>{group.name}</Text>
-                    <Text style={[styles.groupMembers, isDark && styles.textMuted]}>
-                      {group.members.length} member{group.members.length !== 1 ? 's' : ''}
+                    <Text
+                      style={[styles.groupName, isDark && styles.textLight]}
+                    >
+                      {group.name}
+                    </Text>
+                    <Text
+                      style={[styles.groupMembers, isDark && styles.textMuted]}
+                    >
+                      {group.members.length} member
+                      {group.members.length !== 1 ? 's' : ''}
                     </Text>
                   </View>
                 </View>
                 <Pressable
                   style={styles.removeButton}
-                  onPress={() => handleRemoveFromGroup(group.id)}>
+                  onPress={() => handleRemoveFromGroup(group.id)}
+                >
                   <X size={20} color="#ef4444" />
                 </Pressable>
               </View>
@@ -135,41 +180,71 @@ export default function ContactProfileScreen() {
         visible={showAddToGroup}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowAddToGroup(false)}>
+        onRequestClose={() => setShowAddToGroup(false)}
+      >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+          <View
+            style={[styles.modalContent, isDark && styles.modalContentDark]}
+          >
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, isDark && styles.textLight]}>Add to Group</Text>
+              <Text style={[styles.modalTitle, isDark && styles.textLight]}>
+                Add to Group
+              </Text>
               <Pressable onPress={() => setShowAddToGroup(false)}>
                 <X size={24} color={isDark ? '#94a3b8' : '#64748b'} />
               </Pressable>
             </View>
 
             <Pressable
-              style={[styles.createGroupButton, isDark && styles.createGroupButtonDark]}
+              style={[
+                styles.createGroupButton,
+                isDark && styles.createGroupButtonDark,
+              ]}
               onPress={() => {
                 setShowAddToGroup(false);
                 setShowCreateGroup(true);
-              }}>
+              }}
+            >
               <Plus size={20} color="#0891b2" />
               <Text style={styles.createGroupButtonText}>Create New Group</Text>
             </Pressable>
 
             <ScrollView style={styles.groupsList}>
               {groups
-                .filter(group => !group.members.some(member => member.id === contact.id))
-                .map(group => (
+                .filter(
+                  (group) =>
+                    !group.members.some((member) => member.id === contact.id),
+                )
+                .map((group) => (
                   <Pressable
                     key={group.id}
-                    style={[styles.groupOption, isDark && styles.groupOptionDark]}
-                    onPress={() => handleAddToGroup(group)}>
-                    <UsersIcon size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+                    style={[
+                      styles.groupOption,
+                      isDark && styles.groupOptionDark,
+                    ]}
+                    onPress={() => handleAddToGroup(group)}
+                  >
+                    <UsersIcon
+                      size={20}
+                      color={isDark ? '#94a3b8' : '#64748b'}
+                    />
                     <View style={styles.groupOptionInfo}>
-                      <Text style={[styles.groupOptionName, isDark && styles.textLight]}>
+                      <Text
+                        style={[
+                          styles.groupOptionName,
+                          isDark && styles.textLight,
+                        ]}
+                      >
                         {group.name}
                       </Text>
-                      <Text style={[styles.groupOptionMembers, isDark && styles.textMuted]}>
-                        {group.members.length} member{group.members.length !== 1 ? 's' : ''}
+                      <Text
+                        style={[
+                          styles.groupOptionMembers,
+                          isDark && styles.textMuted,
+                        ]}
+                      >
+                        {group.members.length} member
+                        {group.members.length !== 1 ? 's' : ''}
                       </Text>
                     </View>
                   </Pressable>
@@ -183,17 +258,27 @@ export default function ContactProfileScreen() {
         visible={showCreateGroup}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowCreateGroup(false)}>
+        onRequestClose={() => setShowCreateGroup(false)}
+      >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+          <View
+            style={[styles.modalContent, isDark && styles.modalContentDark]}
+          >
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, isDark && styles.textLight]}>Create New Group</Text>
+              <Text style={[styles.modalTitle, isDark && styles.textLight]}>
+                Create New Group
+              </Text>
               <Pressable onPress={() => setShowCreateGroup(false)}>
                 <X size={24} color={isDark ? '#94a3b8' : '#64748b'} />
               </Pressable>
             </View>
 
-            <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
+            <View
+              style={[
+                styles.inputContainer,
+                isDark && styles.inputContainerDark,
+              ]}
+            >
               <TextInput
                 style={[styles.input, isDark && styles.textLight]}
                 placeholder="Enter group name"
@@ -206,10 +291,11 @@ export default function ContactProfileScreen() {
             <Pressable
               style={[
                 styles.createButton,
-                !newGroupName.trim() && styles.createButtonDisabled
+                !newGroupName.trim() && styles.createButtonDisabled,
               ]}
               onPress={handleCreateGroup}
-              disabled={!newGroupName.trim()}>
+              disabled={!newGroupName.trim()}
+            >
               <Text style={styles.createButtonText}>Create Group</Text>
             </Pressable>
           </View>

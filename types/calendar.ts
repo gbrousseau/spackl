@@ -1,28 +1,29 @@
-import * as ExpoCalendar from 'expo-calendar';
-
 export interface CalendarEvent {
   id: string;
-  calendarId: string;
   title: string;
-  startDate: Date | string;
-  endDate: Date | string;
-  allDay?: boolean;
+  startDate: string;
+  endDate: string;
   location?: string;
   notes?: string;
-  url?: string;
-  status?: 'tentative' | 'confirmed' | 'canceled';
-  organizer?: string;
+  status: 'tentative' | 'confirmed' | 'canceled';
   attendees?: Array<{
-    id?: string;
-    name?: string;
-    email?: string;
-    role?: string;
-    status?: string;
+    email: string;
+    status: 'accepted' | 'declined' | 'pending';
   }>;
-  recurrenceRule?: ExpoCalendar.RecurrenceRule;
+  createdBy: string;
 }
 
-export interface CalendarEventFormData extends Omit<CalendarEvent, 'id' | 'calendarId'> {
+export interface EventInvitation {
+  id: string;
+  event: CalendarEvent;
+  invitedBy: string;
+  invitedEmail: string;
+  status: 'accepted' | 'declined' | 'pending';
+  createdAt: string;
+}
+
+export interface CalendarEventFormData
+  extends Omit<CalendarEvent, 'id' | 'calendarId'> {
   id?: string;
   calendarId?: string;
-} 
+}

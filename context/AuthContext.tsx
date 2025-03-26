@@ -1,7 +1,12 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { auth } from '@/config/firebase';
-import { signIn, signUp, signOut } from '@/services/auth';
+import {
+  signIn,
+  signUp,
+  signOut,
+  signInWithGoogle as googleSignIn,
+} from '@/services/auth';
 import { router } from 'expo-router';
 
 interface AuthContextType {
@@ -11,6 +16,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -21,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
+  signInWithGoogle: async () => {},
   clearError: () => {},
 });
 
@@ -30,13 +37,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user: User | null) => {
-      setUser(user);
-      setLoading(false);
-    }, (error) => {
-      console.error('Auth state change error:', error);
-      setLoading(false);
-    });
+    const unsubscribe = auth.onAuthStateChanged(
+      (user: User | null) => {
+        setUser(user);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Auth state change error:', error);
+        setLoading(false);
+      },
+    );
 
     return unsubscribe;
   }, []);
@@ -72,6 +82,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setError(null);
+      await googleSignIn();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to sign in with Google',
+      );
+      throw error;
+    }
+  };
+
   const clearError = () => setError(null);
 
   if (loading) {
@@ -87,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signIn: handleSignIn,
         signUp: handleSignUp,
         signOut: handleSignOut,
+        signInWithGoogle: handleGoogleSignIn,
         clearError,
       }}
     >
@@ -95,4 +120,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const useAuth = () => useContext(AuthContext); 
+export const useAuth = () => useContext(AuthContext);

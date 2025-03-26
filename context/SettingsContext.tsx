@@ -1,7 +1,17 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from 'react';
 import { AppState } from '@/services/firebase';
 import { auth } from '@/services/firebase';
-import { syncAppSettings, loadFromLocal, loadFromFirebase } from '@/services/firebase';
+import {
+  syncAppSettings,
+  loadFromLocal,
+  loadFromFirebase,
+} from '@/services/firebase';
 
 interface SettingsContextType {
   settings: AppState['settings'];
@@ -28,10 +38,13 @@ const SettingsContext = createContext<SettingsContextType>({
 });
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<AppState['settings']>(defaultSettings);
+  const [settings, setSettings] =
+    useState<AppState['settings']>(defaultSettings);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>(
+    'synced',
+  );
 
   const loadInitialSettings = useCallback(async () => {
     if (!auth.currentUser) return;
@@ -61,45 +74,50 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     loadInitialSettings();
   }, [loadInitialSettings]);
 
-  const updateSettings = useCallback(async (newSettings: Partial<AppState['settings']>) => {
-    if (!auth.currentUser) {
-      setError('User not authenticated');
-      return;
-    }
+  const updateSettings = useCallback(
+    async (newSettings: Partial<AppState['settings']>) => {
+      if (!auth.currentUser) {
+        setError('User not authenticated');
+        return;
+      }
 
-    setSyncStatus('syncing');
-    try {
-      const updatedSettings = {
-        ...settings,
-        ...newSettings,
-      };
+      setSyncStatus('syncing');
+      try {
+        const updatedSettings = {
+          ...settings,
+          ...newSettings,
+        };
 
-      setSettings(updatedSettings);
-      await syncAppSettings(auth.currentUser.uid, updatedSettings);
-      setSyncStatus('synced');
-    } catch (error) {
-      console.error('Error updating settings:', error);
-      setError('Failed to update settings');
-      setSyncStatus('error');
-    }
-  }, [settings]);
+        setSettings(updatedSettings);
+        await syncAppSettings(auth.currentUser.uid, updatedSettings);
+        setSyncStatus('synced');
+      } catch (error) {
+        console.error('Error updating settings:', error);
+        setError('Failed to update settings');
+        setSyncStatus('error');
+      }
+    },
+    [settings],
+  );
 
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
   return (
-    <SettingsContext.Provider value={{
-      settings,
-      loading,
-      error,
-      updateSettings,
-      clearError,
-      syncStatus,
-    }}>
+    <SettingsContext.Provider
+      value={{
+        settings,
+        loading,
+        error,
+        updateSettings,
+        clearError,
+        syncStatus,
+      }}
+    >
       {children}
     </SettingsContext.Provider>
   );
 }
 
-export const useSettings = () => useContext(SettingsContext); 
+export const useSettings = () => useContext(SettingsContext);

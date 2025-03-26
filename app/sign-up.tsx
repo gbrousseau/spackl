@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { auth, GoogleSignin } from '@/config/firebase';
 import { useTheme } from '@/context/ThemeContext';
 
-export default function SignInScreen() {
+export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +29,7 @@ export default function SignInScreen() {
     return () => unsubscribe();
   }, [router]);
 
-  const handleSignIn = async () => {
+  const handleSignUp = async () => {
     if (!email || !password) {
       setError('Please fill in all fields');
       return;
@@ -38,11 +38,11 @@ export default function SignInScreen() {
     try {
       setLoading(true);
       setError(null);
-      await auth().signInWithEmailAndPassword(email, password);
+      await auth().createUserWithEmailAndPassword(email, password);
       router.replace('/');
     } catch (err) {
-      console.error('Sign-in Error:', err);
-      setError('Failed to sign in. Please check your credentials.');
+      console.error('Sign-up Error:', err);
+      setError('Failed to sign up. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -78,10 +78,10 @@ export default function SignInScreen() {
     <View style={[styles.container, theme === 'dark' && styles.containerDark]}>
       <View style={styles.content}>
         <Text style={[styles.title, theme === 'dark' && styles.textLight]}>
-          Welcome Back
+          Create Account
         </Text>
         <Text style={[styles.subtitle, theme === 'dark' && styles.textMuted]}>
-          Sign in to continue
+          Sign up to get started
         </Text>
 
         <View style={styles.form}>
@@ -107,13 +107,13 @@ export default function SignInScreen() {
 
           <Pressable
             style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSignIn}
+            onPress={handleSignUp}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
+              <Text style={styles.buttonText}>Sign Up</Text>
             )}
           </Pressable>
 
@@ -121,18 +121,18 @@ export default function SignInScreen() {
             <Text
               style={[styles.linkText, theme === 'dark' && styles.textMuted]}
             >
-              Sign In with Google
+              Sign Up with Google
             </Text>
           </Pressable>
 
           <Pressable
-            onPress={() => router.push('/sign-up')}
             style={styles.linkButton}
+            onPress={() => router.push('/sign-in')}
           >
             <Text
               style={[styles.linkText, theme === 'dark' && styles.textMuted]}
             >
-              Don&apos;t have an account? Sign up
+              Already have an account? Sign in
             </Text>
           </Pressable>
         </View>

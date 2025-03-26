@@ -31,7 +31,10 @@ export interface AppState {
   [key: string]: any;
 }
 
-export const syncWithFirebase = async (userId: string, state: Partial<AppState>) => {
+export const syncWithFirebase = async (
+  userId: string,
+  state: Partial<AppState>,
+) => {
   try {
     const userDoc = doc(db, 'users', userId);
     await setDoc(userDoc, state, { merge: true });
@@ -43,11 +46,13 @@ export const syncWithFirebase = async (userId: string, state: Partial<AppState>)
   }
 };
 
-export const loadFromFirebase = async (userId: string): Promise<Partial<AppState> | null> => {
+export const loadFromFirebase = async (
+  userId: string,
+): Promise<Partial<AppState> | null> => {
   try {
     const userDoc = doc(db, 'users', userId);
     const docSnap = await getDoc(userDoc);
-    
+
     if (docSnap.exists()) {
       const data = docSnap.data() as Partial<AppState>;
       await AsyncStorage.setItem(`appState_${userId}`, JSON.stringify(data));
@@ -60,7 +65,9 @@ export const loadFromFirebase = async (userId: string): Promise<Partial<AppState
   }
 };
 
-export const loadFromLocal = async (userId: string): Promise<Partial<AppState> | null> => {
+export const loadFromLocal = async (
+  userId: string,
+): Promise<Partial<AppState> | null> => {
   try {
     const localData = await AsyncStorage.getItem(`appState_${userId}`);
     if (localData) {
@@ -73,7 +80,10 @@ export const loadFromLocal = async (userId: string): Promise<Partial<AppState> |
   }
 };
 
-export const syncCalendarEvents = async (userId: string, events: CalendarEvent[]) => {
+export const syncCalendarEvents = async (
+  userId: string,
+  events: CalendarEvent[],
+) => {
   const state: Partial<AppState> = {
     calendar: {
       events,
@@ -83,11 +93,14 @@ export const syncCalendarEvents = async (userId: string, events: CalendarEvent[]
   return syncWithFirebase(userId, state);
 };
 
-export const syncAppSettings = async (userId: string, settings: AppState['settings']) => {
+export const syncAppSettings = async (
+  userId: string,
+  settings: AppState['settings'],
+) => {
   const state: Partial<AppState> = {
     settings,
   };
   return syncWithFirebase(userId, state);
 };
 
-export { db, auth }; 
+export { db, auth };

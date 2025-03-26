@@ -9,19 +9,16 @@ export default function SettingsScreen() {
       const result = await testFirebaseConnection();
       setTestResult(JSON.stringify(result, null, 2));
     } catch (error) {
-      setTestResult(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTestResult(
+        `Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   };
 
   return (
     <View style={styles.container}>
-      <Button 
-        title="Test Firebase Connection" 
-        onPress={runFirebaseTest} 
-      />
-      <Text style={styles.resultText}>
-        {testResult}
-      </Text>
+      <Button title="Test Firebase Connection" onPress={runFirebaseTest} />
+      <Text style={styles.resultText}>{testResult}</Text>
     </View>
   );
 }
@@ -35,4 +32,4 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontFamily: 'monospace',
   },
-}); 
+});

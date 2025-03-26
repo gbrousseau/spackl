@@ -1,33 +1,40 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
-type ThemeContextType = {
+interface ThemeContextType {
   isDark: boolean;
   toggleTheme: () => void;
-};
+  theme: 'light' | 'dark';
+}
 
-export const ThemeContext = createContext<ThemeContextType>({
+const ThemeContext = createContext<ThemeContextType>({
   isDark: false,
   toggleTheme: () => {},
+  theme: 'light',
 });
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const systemColorScheme = useColorScheme();
-  const [isDark, setIsDark] = useState(systemColorScheme === 'dark');
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const colorScheme = useColorScheme();
+  const [isDark, setIsDark] = useState(colorScheme === 'dark');
+  const [theme, setTheme] = useState<'light' | 'dark'>(colorScheme || 'light');
 
   useEffect(() => {
-    setIsDark(systemColorScheme === 'dark');
-  }, [systemColorScheme]);
+    setIsDark(colorScheme === 'dark');
+    setTheme(colorScheme || 'light');
+  }, [colorScheme]);
 
   const toggleTheme = () => {
-    setIsDark(prev => !prev);
+    setIsDark(!isDark);
+    setTheme(isDark ? 'light' : 'dark');
   };
 
   return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
+    <ThemeContext.Provider value={{ isDark, toggleTheme, theme }}>
       {children}
     </ThemeContext.Provider>
   );
-}
+};
 
 export const useTheme = () => useContext(ThemeContext);
