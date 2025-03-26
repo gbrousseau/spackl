@@ -58,10 +58,11 @@ export default function SignInScreen() {
         showPlayServicesUpdateDialog: true,
       });
       // Get the users ID token
-      const { idToken } = await GoogleSignin.signIn();
+      await GoogleSignin.signIn();
+      const { accessToken } = await GoogleSignin.getTokens();
 
       // Create a Google credential with the token
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+      const googleCredential = auth.GoogleAuthProvider.credential(accessToken);
 
       // Sign-in the user with the credential
       await auth().signInWithCredential(googleCredential);
