@@ -57,15 +57,50 @@ export default function SignInScreen() {
       await GoogleSignin.hasPlayServices({
         showPlayServicesUpdateDialog: true,
       });
-      // Get the users ID token
-      await GoogleSignin.signIn();
-      const { accessToken } = await GoogleSignin.getTokens();
 
+      await GoogleSignin.signIn();
+      // Get the users ID token and access token
+      // This is required for Firebase authentication
+      // You can also use the ID token if you want to authenticate with Firebase
+      // but the access token is recommended
+      // because it contains the user's profile information
+      // and is used to authenticate with Firebase
+      const { accessToken } = await GoogleSignin.getTokens();
+      // Check if the access token is valid
+      if (!accessToken) {
+        setError('Failed to get access token. Please try again.');
+        return;
+      }
+      // Get the user's profile information
+      const userInfo = await GoogleSignin.getCurrentUser();
+      if (!userInfo) {
+        setError('Failed to get user information. Please try again.');
+        return;
+      }
+      // Check if the user is already signed in
+      const user = auth().currentUser;
+      if (user) {
+        // User is already signed in, no need to sign in again
+        router.replace('/');
+        return;
+      }
+      // Check if the user is already signed in with Google
+      const googleUser = await auth().signInWithCredential(
+        auth.GoogleAuthProvider.credential(userInfo.idToken),
+      );
+      if (googleUser) {
+        // User is already signed in with Google, no need to sign in again
+        router.replace('/');
+        return;
+      }
       // Create a Google credential with the token
       const googleCredential = auth.GoogleAuthProvider.credential(accessToken);
 
-      // Sign-in the user with the credential
+      // If the user is not signed in, sign in with the credential
+      // This will create a new user in Firebase with the user's profile information
+      // and sign in the user
       await auth().signInWithCredential(googleCredential);
+      // User is signed in, navigate to the home screen
       router.replace('/');
     } catch (err) {
       console.error('Google Sign-In Error:', err);

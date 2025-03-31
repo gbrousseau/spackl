@@ -4,8 +4,14 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 
+/**
+ * Send a notification to participants about an event.
+ * @param participants - List of participants with their names and optional emails.
+ * @param eventDetails - Details of the event including title, start date, and optional location.
+ */
 type NotificationContextType = {
   isEnabled: boolean;
+  notificationPermission: boolean;
   toggleNotifications: () => Promise<void>;
   requestPermissions: () => Promise<boolean>;
   sendEventNotification: (
@@ -20,9 +26,10 @@ type NotificationContextType = {
 
 const NotificationContext = createContext<NotificationContextType>({
   isEnabled: false,
-  toggleNotifications: async () => {},
+  toggleNotifications: async () => { },
   requestPermissions: async () => false,
-  sendEventNotification: async () => {},
+  sendEventNotification: async () => { },
+  notificationPermission: false,
 });
 
 Notifications.setNotificationHandler({
@@ -131,6 +138,7 @@ export function NotificationProvider({
             data: { eventDetails },
           },
           trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
             date: reminderTime,
           },
         });
@@ -144,6 +152,7 @@ export function NotificationProvider({
     <NotificationContext.Provider
       value={{
         isEnabled,
+        notificationPermission: isEnabled,
         toggleNotifications,
         requestPermissions,
         sendEventNotification,

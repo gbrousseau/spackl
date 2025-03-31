@@ -1,14 +1,12 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { auth } from '@/config/firebase';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+const auth = getAuth();
 import {
-  signIn,
-  signUp,
   signOut,
   signInWithGoogle as googleSignIn,
 } from '@/services/auth';
 import { router } from 'expo-router';
-
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -37,7 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(
+    const unsubscribe = onAuthStateChanged(
+      auth,
       (user: User | null) => {
         setUser(user);
         setLoading(false);
@@ -47,8 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       },
     );
-
-    return unsubscribe;
+    return () => unsubscribe();
   }, []);
 
   const handleSignIn = async (email: string, password: string) => {
@@ -121,3 +119,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+
+async function signIn(email: string, password: string) {
+  const auth = getAuth();
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  return userCredential.user;
+}
+async function signUp(email: string, password: string) {
+  const auth = getAuth();
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  return userCredential.user;
+}
+

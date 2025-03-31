@@ -12,6 +12,8 @@
       "react-native",
       "expo",
       "expo-router",
+      "jest",
+      "react-test-renderer",
       "@react-native-google-signin/google-signin"
     ]
   },

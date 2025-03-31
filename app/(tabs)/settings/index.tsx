@@ -1,12 +1,9 @@
 import { View, Text, StyleSheet, ScrollView, Switch, Pressable } from 'react-native';
 import {
   Bell,
-  Share,
-  Lock,
   CircleHelp as HelpCircle,
   LogOut,
   Moon,
-  Database,
   Shield,
   Sun,
   Settings as SettingsIcon,
@@ -17,13 +14,10 @@ import { NotificationContext } from '@/context/NotificationContext';
 import { testFirebaseConnection } from '@/utils/firebaseTest';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
-import { auth } from '@/services/firebase';
-import { signOut } from '@/services/auth';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { isDark, toggleTheme } = useTheme();
-  const { isEnabled, toggleNotifications } = useContext(NotificationContext);
   const { signOut } = useAuth();
   const [testResult, setTestResult] = useState<string>('');
 
@@ -37,6 +31,8 @@ export default function SettingsScreen() {
       );
     }
   };
+
+  const { notificationPermission } = useContext(NotificationContext);
 
   const handleSignOut = async () => {
     try {

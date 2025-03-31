@@ -89,14 +89,17 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
           (contact) => contact.phoneNumbers && contact.phoneNumbers.length > 0,
         )
         .map((contact) => ({
-          id: contact.id,
+          id: contact.id || 'unknown-id',
           name: contact.name || 'No Name',
           email: contact.emails?.[0]?.email,
-          phoneNumbers: contact.phoneNumbers,
+          phoneNumbers: contact.phoneNumbers?.map((phone) => ({
+            number: phone.number || '',
+          })),
           imageAvailable: contact.imageAvailable,
-          image: contact.image,
+          image: contact.image?.uri ? { uri: contact.image.uri } : undefined,
           shared: false,
-        }));
+        }))
+        .filter((contact) => contact.id !== 'unknown-id');
 
       // Load shared status from storage
       const sharedStatuses = await AsyncStorage.getItem('shared_contacts');

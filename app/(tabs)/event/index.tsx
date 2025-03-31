@@ -9,7 +9,6 @@ import {
   Platform,
   Image,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Calendar from 'expo-calendar';
@@ -33,6 +32,7 @@ import { useCalendar } from '@/context/CalendarContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { LocationAutocomplete } from '@/components/LocationAutocomplete';
 import { Image as ContactImage } from 'expo-contacts';
+import * as FileSystem from 'expo-file-system';
 
 // Helper function to generate unique IDs
 const generateUniqueId = () => {
@@ -179,13 +179,14 @@ export default function EventScreen() {
   const [error, setError] = useState<string | null>(null);
 
   // Check if current user is the event creator
-  const isCreator = event.organizer?.email === currentUser.email;
+  const isCreator = event.organizer?.email === currentUser;
 
   // Date picker states
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const { isDark: isDarkTheme } = useTheme();
 
   const loadEvent = async () => {
     if (id) {
@@ -300,7 +301,7 @@ export default function EventScreen() {
             onPress: async () => {
               try {
                 await Calendar.deleteEventAsync(id);
-                await refreshEvents(new Date()); // Refresh events after deletion
+                await refreshEvents(); // Refresh events after deletion
                 router.back();
               } catch (err) {
                 console.error('Error deleting event:', err);
@@ -352,6 +353,20 @@ export default function EventScreen() {
             },
           ],
         };
+        const saveEventToLocalJson = async (eventDetails: any) => {
+          const fileUri = FileSystem.documentDirectory + 'eventDetails.json';
+          try {
+            const existingData = await FileSystem.readAsStringAsync(fileUri).catch(() => '[]');
+            const parsedData = JSON.parse(existingData);
+            parsedData.push(eventDetails);
+            await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(parsedData, null, 2));
+            console.log('Event details saved locally');
+          } catch (err) {
+            console.error('Error saving event details locally:', err);
+          }
+        };
+
+        await saveEventToLocalJson(eventDetails);
 
         if (id) {
           await Calendar.updateEventAsync(id, eventDetails);
@@ -359,7 +374,7 @@ export default function EventScreen() {
           await Calendar.createEventAsync(defaultCalendar.id, eventDetails);
         }
 
-        await refreshEvents(new Date());
+        await refreshEvents();
       }
 
       // Send notifications to participants

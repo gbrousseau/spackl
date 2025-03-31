@@ -3,34 +3,29 @@ import { Platform } from 'react-native';
 import { CalendarEvent } from '@/types/calendar';
 
 export const getDefaultCalendarSource = async () => {
-  const defaultCalendar =
-    Platform.OS === 'ios'
-      ? await Calendar.getDefaultCalendarAsync()
-      : (await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT)).filter(
-          (calendar) =>
-            calendar.accessLevel === Calendar.CalendarAccessLevel.OWNER,
-        )[0];
-
-  return defaultCalendar;
+  
+  if (Platform.OS === 'ios') {
+    return await Calendar.getDefaultCalendarAsync();
+  }
+  return (await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT)).filter(
+    (calendar) =>
+      calendar.accessLevel === Calendar.CalendarAccessLevel.OWNER,
+  )[0];
 };
 
 export const createCalendar = async () => {
-  const defaultCalendarSource = await getDefaultCalendarSource();
-
-  const newCalendar = {
-    title: 'Spackl Calendar',
-    color: '#0891b2',
-    entityType: Calendar.EntityTypes.EVENT,
-    sourceId: defaultCalendarSource?.sourceId,
-    source: defaultCalendarSource?.source,
-    name: 'spackl_calendar',
-    accessLevel: Calendar.CalendarAccessLevel.OWNER,
-    ownerAccount: defaultCalendarSource?.ownerAccount,
-  };
-
   try {
-    const calendarId = await Calendar.createCalendarAsync(newCalendar);
-    return calendarId;
+    const defaultCalendarSource = await getDefaultCalendarSource();
+    return await Calendar.createCalendarAsync({
+      title: 'Spackl Calendar',
+      color: '#0891b2',
+      entityType: Calendar.EntityTypes.EVENT,
+      sourceId: defaultCalendarSource?.sourceId,
+      source: defaultCalendarSource?.source,
+      name: 'spackl_calendar',
+      accessLevel: Calendar.CalendarAccessLevel.OWNER,
+      ownerAccount: defaultCalendarSource?.ownerAccount,
+    });
   } catch (error) {
     console.error('Failed to create calendar', error);
     throw error;
@@ -146,6 +141,7 @@ export const getLocalCalendarEvents = async (
             event.availability === Calendar.Availability.TENTATIVE
               ? 'tentative'
               : 'confirmed',
+          createdBy: '', // Add a default or appropriate value for createdBy
         }) as CalendarEvent,
     );
   } catch (error) {

@@ -1,4 +1,14 @@
 import { initializeApp } from 'firebase/app';
+
+// Define CalendarEvent type
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  location?: string;
+  description?: string;
+}
 import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,7 +18,7 @@ const firebaseConfig = {
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    // events: CalendarEvent[]; // Removed invalid line
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 

@@ -101,7 +101,6 @@ export default function ContactsScreen() {
         ],
       });
 
-      // Only include contacts with phone numbers
       const contactsWithPhones = data
         .filter(
           (contact) => contact.phoneNumbers && contact.phoneNumbers.length > 0,

@@ -58,7 +58,10 @@ export default function SignUpScreen() {
         showPlayServicesUpdateDialog: true,
       });
       // Get the users ID token
-      const { idToken } = await GoogleSignin.signIn();
+      const userInfo = await GoogleSignin.signIn();
+      console.log('User Info:', userInfo);
+      const { idToken } = await GoogleSignin.getTokens();
+      // Get the user's profile information
 
       // Create a Google credential with the token
       const googleCredential = auth.GoogleAuthProvider.credential(idToken);
@@ -97,6 +100,14 @@ export default function SignUpScreen() {
           <TextInput
             style={[styles.input, theme === 'dark' && styles.inputDark]}
             placeholder="Password"
+            placeholderTextColor={theme === 'dark' ? '#94a3b8' : '#64748b'}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+          <TextInput
+            style={[styles.input, theme === 'dark' && styles.inputDark]}
+            placeholder="Confirm Password"
             placeholderTextColor={theme === 'dark' ? '#94a3b8' : '#64748b'}
             value={password}
             onChangeText={setPassword}

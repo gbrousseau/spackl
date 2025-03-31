@@ -56,6 +56,7 @@ export default function AddEventScreen() {
         status: 'pending',
       })),
       status: 'confirmed',
+      createdBy: 'user@example.com',
     };
 
     try {
