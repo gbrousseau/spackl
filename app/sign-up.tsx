@@ -8,8 +8,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { auth, GoogleSignin } from '@/config/firebase';
+import { FIREBASE_AUTH } from '@/firebaseConfig';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useTheme } from '@/context/ThemeContext';
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+
+const auth = FIREBASE_AUTH;
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState('');
@@ -20,7 +24,7 @@ export default function SignUpScreen() {
   const { theme } = useTheme();
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
         router.replace('/');
       }
@@ -38,7 +42,7 @@ export default function SignUpScreen() {
     try {
       setLoading(true);
       setError(null);
-      await auth().createUserWithEmailAndPassword(email, password);
+      await createUserWithEmailAndPassword(auth, email, password);
       router.replace('/');
     } catch (err) {
       console.error('Sign-up Error:', err);
@@ -64,10 +68,10 @@ export default function SignUpScreen() {
       // Get the user's profile information
 
       // Create a Google credential with the token
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+      const googleCredential = GoogleAuthProvider.credential(idToken);
 
       // Sign-in the user with the credential
-      await auth().signInWithCredential(googleCredential);
+      await signInWithCredential(auth, googleCredential);
       router.replace('/');
     } catch (err) {
       console.error('Google Sign-In Error:', err);

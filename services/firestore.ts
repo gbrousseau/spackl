@@ -1,13 +1,17 @@
-import { auth, firestore } from '@/config/firebase';
+import { FIREBASE_AUTH, FIREBASE_FIRESTORE } from '@/firebaseConfig';
 import type { CalendarEvent, EventInvitation } from '@/types/calendar';
 import type { DocumentData } from '@firebase/firestore-types';
+import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, serverTimestamp, query, where, getDocs, writeBatch } from 'firebase/firestore';
+
+const auth = FIREBASE_AUTH;
+const firestore = getFirestore();
 
 export async function syncUserProfile(email: string, displayName: string) {
   try {
-    await firestore().collection('users').doc(email).set({
+    await setDoc(doc(collection(firestore, 'users'), email), {
       email,
       displayName,
-      updatedAt: firestore.FieldValue.serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
   } catch (err) {
     console.error('Failed to sync user profile:', err);
@@ -17,8 +21,9 @@ export async function syncUserProfile(email: string, displayName: string) {
 
 export async function getUserProfile(email: string) {
   try {
-    const doc = await firestore().collection('users').doc(email).get();
-    return doc.data() as DocumentData | undefined;
+    const docRef = doc(collection(firestore, 'users'), email);
+    const docSnap = await getDoc(docRef);
+    return docSnap.data() as DocumentData | undefined;
   } catch (err) {
     console.error('Failed to get user profile:', err);
     throw err;
@@ -27,32 +32,23 @@ export async function getUserProfile(email: string) {
 
 export async function syncCalendarEvent(event: CalendarEvent) {
   try {
-    const user = auth().currentUser;
+    const user = auth.currentUser;
     if (!user?.email) throw new Error('User not authenticated');
 
     // Save event to Firestore
-    await firestore()
-      .collection('users')
-      .doc(user.email)
-      .collection('calendar')
-      .doc(event.id)
-      .set({
-        ...event,
-        updatedAt: firestore.FieldValue.serverTimestamp(),
-      });
+    await setDoc(doc(collection(firestore, 'users', user.email, 'calendar'), event.id), {
+      ...event,
+      updatedAt: serverTimestamp(),
+    });
 
     // Create invitations for attendees
     if (event.attendees?.length) {
-      const batch = firestore().batch();
+      const batch = writeBatch(firestore);
 
       for (const attendee of event.attendees) {
         if (attendee.email === user.email) continue;
 
-        const invitationRef = firestore()
-          .collection('users')
-          .doc(attendee.email)
-          .collection('invitations')
-          .doc();
+        const invitationRef = doc(collection(firestore, 'users', attendee.email, 'invitations'));
 
         batch.set(invitationRef, {
           id: invitationRef.id,
@@ -60,7 +56,7 @@ export async function syncCalendarEvent(event: CalendarEvent) {
           invitedBy: user.email,
           invitedEmail: attendee.email,
           status: 'pending',
-          createdAt: firestore.FieldValue.serverTimestamp(),
+          createdAt: serverTimestamp(),
         });
       }
 
@@ -72,15 +68,10 @@ export async function syncCalendarEvent(event: CalendarEvent) {
   }
 }
 
-export async function getCalendarEvents(
-  email: string,
-): Promise<CalendarEvent[]> {
+export async function getCalendarEvents(email: string): Promise<CalendarEvent[]> {
   try {
-    const snapshot = await firestore()
-      .collection('users')
-      .doc(email)
-      .collection('calendar')
-      .get();
+    const q = query(collection(firestore, 'users', email, 'calendar'));
+    const snapshot = await getDocs(q);
 
     return snapshot.docs.map((doc) => doc.data() as CalendarEvent);
   } catch (err) {
@@ -89,16 +80,10 @@ export async function getCalendarEvents(
   }
 }
 
-export async function getPendingInvitations(
-  email: string,
-): Promise<EventInvitation[]> {
+export async function getPendingInvitations(email: string): Promise<EventInvitation[]> {
   try {
-    const snapshot = await firestore()
-      .collection('users')
-      .doc(email)
-      .collection('invitations')
-      .where('status', '==', 'pending')
-      .get();
+    const q = query(collection(firestore, 'users', email, 'invitations'), where('status', '==', 'pending'));
+    const snapshot = await getDocs(q);
 
     return snapshot.docs.map((doc) => {
       const data = doc.data();
@@ -117,40 +102,26 @@ export async function getPendingInvitations(
   }
 }
 
-export async function respondToInvitation(
-  invitationId: string,
-  email: string,
-  status: 'accepted' | 'declined',
-) {
+export async function respondToInvitation(invitationId: string, email: string, status: 'accepted' | 'declined') {
   try {
-    const invitationRef = firestore()
-      .collection('users')
-      .doc(email)
-      .collection('invitations')
-      .doc(invitationId);
-
-    const invitationDoc = await invitationRef.get();
-    if (!invitationDoc.exists) throw new Error('Invitation not found');
+    const invitationRef = doc(collection(firestore, 'users', email, 'invitations'), invitationId);
+    const invitationDoc = await getDoc(invitationRef);
+    if (!invitationDoc.exists()) throw new Error('Invitation not found');
 
     const invitation = invitationDoc.data() as EventInvitation;
 
     // Update invitation status
-    await invitationRef.update({
+    await updateDoc(invitationRef, {
       status,
-      updatedAt: firestore.FieldValue.serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
 
     // If accepted, add event to user's calendar
     if (status === 'accepted') {
-      await firestore()
-        .collection('users')
-        .doc(email)
-        .collection('calendar')
-        .doc(invitation.event.id)
-        .set({
-          ...invitation.event,
-          updatedAt: firestore.FieldValue.serverTimestamp(),
-        });
+      await setDoc(doc(collection(firestore, 'users', email, 'calendar'), invitation.event.id), {
+        ...invitation.event,
+        updatedAt: serverTimestamp(),
+      });
     }
   } catch (err) {
     console.error('Failed to respond to invitation:', err);

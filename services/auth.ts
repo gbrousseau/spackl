@@ -4,7 +4,7 @@ import firestore from '@react-native-firebase/firestore';
 import { GoogleAuthProvider } from 'firebase/auth';
 import { FirebaseError } from '@firebase/util';
 import { Platform } from 'react-native';
-import { GoogleSignin } from '@/config/firebase';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // Configure Google Sign-In
 if (GoogleSignin) {

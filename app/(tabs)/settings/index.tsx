@@ -14,24 +14,14 @@ import { NotificationContext } from '@/context/NotificationContext';
 import { testFirebaseConnection } from '@/utils/firebaseTest';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
+import { FIREBASE_AUTH, FIREBASE_FIRESTORE } from '@/firebaseConfig';
 
 export default function SettingsScreen() {
+  const auth = FIREBASE_AUTH;
+  const { user } = useAuth();
   const router = useRouter();
   const { isDark, toggleTheme } = useTheme();
   const { signOut } = useAuth();
-  const [testResult, setTestResult] = useState<string>('');
-
-  const runFirebaseTest = async () => {
-    try {
-      const result = await testFirebaseConnection();
-      setTestResult(JSON.stringify(result, null, 2));
-    } catch (error) {
-      setTestResult(
-        `Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
-    }
-  };
-
   const { notificationPermission } = useContext(NotificationContext);
 
   const handleSignOut = async () => {

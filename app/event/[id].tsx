@@ -20,7 +20,9 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { useCalendar } from '@/context/CalendarContext';
 import type { CalendarEvent } from '@/types/calendar';
-import { auth } from '@/config/firebase';
+import { FIREBASE_AUTH } from '@/firebaseConfig';
+
+const auth = FIREBASE_AUTH;
 
 export default function EventScreen() {
   const { id } = useLocalSearchParams();
@@ -29,10 +31,10 @@ export default function EventScreen() {
   const { events, updateEvent, deleteEvent } = useCalendar();
   const [event, setEvent] = useState<CalendarEvent | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(!!auth().currentUser);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!auth.currentUser);
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
       setIsAuthenticated(!!user);
       if (!user) {
         router.replace('/sign-in');

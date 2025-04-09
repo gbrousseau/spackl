@@ -1,5 +1,8 @@
-import { db, auth } from '@/config/firebase';
+import { FIREBASE_FIRESTORE, FIREBASE_AUTH } from '@/firebaseConfig';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
+
+const db = FIREBASE_FIRESTORE;
+const auth = FIREBASE_AUTH;
 
 export const testFirebaseConnection = async () => {
   try {

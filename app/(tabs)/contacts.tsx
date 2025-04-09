@@ -14,14 +14,16 @@ import * as Contacts from 'expo-contacts';
 import * as SMS from 'expo-sms';
 import {
   Share2,
-  User,
+  User as UserIcon,
   Search,
   X,
 } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useRouter } from 'expo-router';
-import { auth } from '@/config/firebase';
+import { FIREBASE_AUTH } from '@/firebaseConfig';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
+const auth = FIREBASE_AUTH;
 const generateUniqueId = () =>
   Math.random().toString(36).substring(2) + Date.now().toString(36);
 
@@ -43,10 +45,11 @@ export default function ContactsScreen() {
   const [sharedCount, setSharedCount] = useState(0);
   const { isDark } = useTheme();
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(!!auth().currentUser);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!auth.currentUser);
+
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
       setIsAuthenticated(!!user);
       if (!user) {
         router.replace('/sign-in');
@@ -257,7 +260,7 @@ export default function ContactsScreen() {
                     isDark && styles.avatarPlaceholderDark,
                   ]}
                 >
-                  <User size={24} color={isDark ? '#94a3b8' : '#64748b'} />
+                  <UserIcon size={24} color={isDark ? '#94a3b8' : '#64748b'} />
                 </View>
               )}
             </Pressable>
@@ -417,7 +420,6 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     width: 40,
-    height: 40,
     borderRadius: 20,
     backgroundColor: '#f1f5f9',
     justifyContent: 'center',
@@ -448,3 +450,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+

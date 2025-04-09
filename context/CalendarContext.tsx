@@ -8,7 +8,10 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Calendar from 'expo-calendar';
 import * as Notifications from 'expo-notifications';
-import { auth } from '@/config/firebase';
+import { FIREBASE_AUTH } from '@/firebaseConfig';
+
+const auth = FIREBASE_AUTH;
+
 import {
   syncCalendarEvent,
   getCalendarEvents,
@@ -83,7 +86,7 @@ export const CalendarContext = createContext<CalendarContextType>({
   setCurrentUser: () => { },
   refreshEvents: async () => {
     try {
-      const user = auth().currentUser;
+      const user = auth.currentUser;
       if (!user?.email) {
         setError('User not authenticated');
         return;
@@ -155,7 +158,7 @@ export const CalendarContext = createContext<CalendarContextType>({
 export const CalendarProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const currentUser = auth().currentUser?.email || null;
+  const currentUser = auth.currentUser?.email || null;
 
   const refreshEvents = useCallback(async () => {
     try {
@@ -163,7 +166,7 @@ export const CalendarProvider: React.FC<{ children: React.ReactNode }> = ({
       setError(null);
       setSyncStatus('syncing');
 
-      const user = auth().currentUser;
+      const user = auth.currentUser;
       if (!user?.email) {
         setError('User not authenticated');
         return;
@@ -259,7 +262,7 @@ export const CalendarProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const loadPendingInvitations = useCallback(async () => {
     try {
-      const user = auth().currentUser;
+      const user = auth.currentUser;
       if (!user?.email) return;
 
       const invitations = await getPendingInvitations(user.email);
@@ -281,7 +284,7 @@ export const CalendarProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
         void refreshEvents();
         void loadPendingInvitations();
@@ -296,7 +299,7 @@ export const CalendarProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const addEvent = async (event: CalendarEvent) => {
     try {
-      const user = auth().currentUser;
+      const user = auth.currentUser;
       if (!user?.email) throw new Error('User not authenticated');
 
       // Add to local calendar
@@ -333,7 +336,7 @@ export const CalendarProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const updateEvent = async (event: CalendarEvent) => {
     try {
-      const user = auth().currentUser;
+      const user = auth.currentUser;
       if (!user?.email) throw new Error('User not authenticated');
 
       // Update in local calendar
@@ -395,7 +398,7 @@ export const CalendarProvider: React.FC<{ children: React.ReactNode }> = ({
     accept: boolean,
   ) => {
     try {
-      const user = auth().currentUser;
+      const user = auth.currentUser;
       if (!user?.email) throw new Error('User not authenticated');
 
       await respondToInvitation(

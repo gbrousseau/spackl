@@ -8,8 +8,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { auth, GoogleSignin } from '@/config/firebase';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useTheme } from '@/context/ThemeContext';
+import { FIREBASE_AUTH } from '@/firebaseConfig';
+import { GoogleAuthProvider, User, onAuthStateChanged, sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
+
+const auth = FIREBASE_AUTH;
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -18,9 +22,8 @@ export default function SignInScreen() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const { theme } = useTheme();
-
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
       if (user) {
         router.replace('/');
       }
@@ -38,7 +41,7 @@ export default function SignInScreen() {
     try {
       setLoading(true);
       setError(null);
-      await auth().signInWithEmailAndPassword(email, password);
+      await signInWithEmailAndPassword(auth, email, password);
       router.replace('/');
     } catch (err) {
       console.error('Sign-in Error:', err);
@@ -59,12 +62,7 @@ export default function SignInScreen() {
       });
 
       await GoogleSignin.signIn();
-      // Get the users ID token and access token
-      // This is required for Firebase authentication
-      // You can also use the ID token if you want to authenticate with Firebase
-      // but the access token is recommended
-      // because it contains the user's profile information
-      // and is used to authenticate with Firebase
+
       const { accessToken } = await GoogleSignin.getTokens();
       // Check if the access token is valid
       if (!accessToken) {
@@ -78,15 +76,16 @@ export default function SignInScreen() {
         return;
       }
       // Check if the user is already signed in
-      const user = auth().currentUser;
+      const user = auth.currentUser;
       if (user) {
         // User is already signed in, no need to sign in again
         router.replace('/');
         return;
       }
       // Check if the user is already signed in with Google
-      const googleUser = await auth().signInWithCredential(
-        auth.GoogleAuthProvider.credential(userInfo.idToken),
+      const googleUser = await signInWithCredential(
+        auth,
+        GoogleAuthProvider.credential(userInfo.idToken),
       );
       if (googleUser) {
         // User is already signed in with Google, no need to sign in again
@@ -94,12 +93,12 @@ export default function SignInScreen() {
         return;
       }
       // Create a Google credential with the token
-      const googleCredential = auth.GoogleAuthProvider.credential(accessToken);
+      const googleCredential = GoogleAuthProvider.credential(accessToken);
 
       // If the user is not signed in, sign in with the credential
       // This will create a new user in Firebase with the user's profile information
       // and sign in the user
-      await auth().signInWithCredential(googleCredential);
+      await signInWithCredential(auth, googleCredential);
       // User is signed in, navigate to the home screen
       router.replace('/');
     } catch (err) {

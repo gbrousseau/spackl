@@ -33,18 +33,20 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { useCalendar } from '@/context/CalendarContext';
 import type { CalendarEvent } from '@/types/calendar';
-import { auth } from '@/config/firebase';
+import { FIREBASE_AUTH } from '@/firebaseConfig';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
+const auth = FIREBASE_AUTH;
 export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showEvents, setShowEvents] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(!!auth().currentUser);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!auth.currentUser);
   const router = useRouter();
   const { theme } = useTheme();
   const { events, loading, error, refreshEvents } = useCalendar();
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
       setIsAuthenticated(!!user);
       if (!user) {
         router.replace('/sign-in');
