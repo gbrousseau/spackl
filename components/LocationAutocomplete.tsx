@@ -1,14 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { MapPin, X, Navigation } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import debounce from 'lodash.debounce';
@@ -18,7 +9,6 @@ interface LocationAutocompleteProps {
   onLocationSelect: (location: string) => void;
   placeholder?: string;
   isDark?: boolean;
-  disabled: boolean;
 }
 
 interface Suggestion {
@@ -31,7 +21,6 @@ export function LocationAutocomplete({
   onLocationSelect,
   placeholder = 'Enter location',
   isDark = false,
-  disabled,
 }: LocationAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -51,8 +40,8 @@ export function LocationAutocomplete({
       try {
         const response = await fetch(
           `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-            text,
-          )}&types=address&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`,
+            text
+          )}&types=address&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`
         );
 
         if (!response.ok) {
@@ -60,18 +49,16 @@ export function LocationAutocomplete({
         }
 
         const data = await response.json();
-
+        
         if (data.status !== 'OK') {
           setSuggestions([]);
           return;
         }
 
-        const formattedSuggestions = data.predictions.map(
-          (prediction: any) => ({
-            description: prediction.description,
-            place_id: prediction.place_id,
-          }),
-        );
+        const formattedSuggestions = data.predictions.map((prediction: any) => ({
+          description: prediction.description,
+          place_id: prediction.place_id,
+        }));
 
         setSuggestions(formattedSuggestions);
         setError(null);
@@ -81,7 +68,7 @@ export function LocationAutocomplete({
         setError('Failed to fetch location suggestions');
       }
     }, 300),
-    [],
+    []
   );
 
   const getCurrentLocation = async () => {
@@ -100,11 +87,11 @@ export function LocationAutocomplete({
 
       // Reverse geocode the coordinates
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`,
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`
       );
 
       const data = await response.json();
-
+      
       if (data.status === 'OK' && data.results.length > 0) {
         const address = data.results[0].formatted_address;
         setInputValue(address);
@@ -150,9 +137,7 @@ export function LocationAutocomplete({
 
   return (
     <View style={styles.container}>
-      <View
-        style={[styles.inputContainer, isDark && styles.inputContainerDark]}
-      >
+      <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
         <MapPin size={20} color={isDark ? '#94a3b8' : '#64748b'} />
         <TextInput
           ref={inputRef}
@@ -168,16 +153,12 @@ export function LocationAutocomplete({
             <X size={20} color={isDark ? '#94a3b8' : '#64748b'} />
           </Pressable>
         ) : (
-          <Pressable
-            onPress={getCurrentLocation}
+          <Pressable 
+            onPress={getCurrentLocation} 
             style={styles.locationButton}
-            disabled={isLoadingLocation || disabled}
-          >
+            disabled={isLoadingLocation}>
             {isLoadingLocation ? (
-              <ActivityIndicator
-                size="small"
-                color={isDark ? '#94a3b8' : '#64748b'}
-              />
+              <ActivityIndicator size="small" color={isDark ? '#94a3b8' : '#64748b'} />
             ) : (
               <Navigation size={20} color={isDark ? '#94a3b8' : '#64748b'} />
             )}
@@ -193,27 +174,18 @@ export function LocationAutocomplete({
 
       {showSuggestions && suggestions.length > 0 && (
         <ScrollView
-          style={[
-            styles.suggestionsContainer,
-            isDark && styles.suggestionsContainerDark,
-          ]}
+          style={[styles.suggestionsContainer, isDark && styles.suggestionsContainerDark]}
           keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled
-        >
+          nestedScrollEnabled>
           {suggestions.map((suggestion) => (
             <Pressable
               key={suggestion.place_id}
-              style={[
-                styles.suggestionItem,
-                isDark && styles.suggestionItemDark,
-              ]}
-              onPress={() => handleSuggestionSelect(suggestion)}
-            >
+              style={[styles.suggestionItem, isDark && styles.suggestionItemDark]}
+              onPress={() => handleSuggestionSelect(suggestion)}>
               <MapPin size={16} color={isDark ? '#94a3b8' : '#64748b'} />
               <Text
                 style={[styles.suggestionText, isDark && styles.textLight]}
-                numberOfLines={2}
-              >
+                numberOfLines={2}>
                 {suggestion.description}
               </Text>
             </Pressable>
@@ -249,10 +221,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#0f172a',
   },
-  inputDark: {
-    color: '#f8fafc',
-  },
-
   clearButton: {
     padding: 4,
   },
@@ -282,8 +250,7 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     ...Platform.select({
       web: {
-        boxShadow:
-          '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
       },
       default: {
         elevation: 4,
@@ -320,9 +287,5 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: '#f8fafc',
-  },
-  inputDisabled: {
-    opacity: 0.7,
-    backgroundColor: '#f1f5f9',
   },
 });

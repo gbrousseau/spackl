@@ -1,31 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  Image,
-  Platform,
-  ActivityIndicator,
-  TextInput,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, Image, Platform, ActivityIndicator, TextInput, Animated, Modal } from 'react-native';
 import * as Contacts from 'expo-contacts';
 import * as SMS from 'expo-sms';
-import {
-  Share2,
-  User as UserIcon,
-  Search,
-  X,
-} from 'lucide-react-native';
+import { Share2, User, Search, X, Plus, Users as UsersIcon, CreditCard as Edit2, MessageCircle } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { FIREBASE_AUTH } from '@/firebaseConfig';
-import { onAuthStateChanged, User } from 'firebase/auth';
-
-const auth = FIREBASE_AUTH;
-const generateUniqueId = () =>
-  Math.random().toString(36).substring(2) + Date.now().toString(36);
 
 type Contact = {
   id: string;
@@ -33,8 +13,14 @@ type Contact = {
   email?: string;
   phoneNumbers?: Contacts.PhoneNumber[];
   imageAvailable?: boolean;
-  image?: Contacts.Image;
+  image?: Image;
   shared?: boolean;
+};
+
+type Group = {
+  id: string;
+  name: string;
+  contacts: Contact[];
 };
 
 export default function ContactsScreen() {
@@ -43,27 +29,13 @@ export default function ContactsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sharedCount, setSharedCount] = useState(0);
+  const [fabAnim] = useState(new Animated.Value(1));
   const { isDark } = useTheme();
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(!!auth.currentUser);
-
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
-      setIsAuthenticated(!!user);
-      if (!user) {
-        router.replace('/sign-in');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadContacts();
-    }
-  }, [isAuthenticated]);
+    loadContacts();
+  }, []);
 
   const loadContacts = async () => {
     try {
@@ -74,14 +46,14 @@ export default function ContactsScreen() {
             id: '1',
             name: 'Alice Johnson',
             email: 'alice@example.com',
-            phoneNumbers: [{ number: '+1 234 567 8900', label: 'mobile' }],
+            phoneNumbers: [{ number: '+1 234 567 8900' }],
             shared: false,
           },
           {
             id: '2',
             name: 'Bob Smith',
             email: 'bob@example.com',
-            phoneNumbers: [{ number: '+1 234 567 8901', label: 'mobile' }],
+            phoneNumbers: [{ number: '+1 234 567 8901' }],
             shared: false,
           },
         ]);
@@ -104,19 +76,18 @@ export default function ContactsScreen() {
         ],
       });
 
-      const contactsWithPhones = data
-        .filter(
-          (contact) => contact.phoneNumbers && contact.phoneNumbers.length > 0,
-        )
-        .map((contact) => ({
-          id: contact.id || generateUniqueId(),
-          name: contact.name || 'No Name',
-          email: contact.emails?.[0]?.email,
-          phoneNumbers: contact.phoneNumbers,
-          imageAvailable: contact.imageAvailable,
-          image: contact.image,
-          shared: false,
-        }));
+      // Only include contacts with phone numbers
+      const contactsWithPhones = data.filter(contact => 
+        contact.phoneNumbers && contact.phoneNumbers.length > 0
+      ).map(contact => ({
+        id: contact.id,
+        name: contact.name || 'No Name',
+        email: contact.emails?.[0]?.email,
+        phoneNumbers: contact.phoneNumbers,
+        imageAvailable: contact.imageAvailable,
+        image: contact.image,
+        shared: false,
+      }));
 
       setContacts(contactsWithPhones);
     } catch (err) {
@@ -144,14 +115,33 @@ export default function ContactsScreen() {
       if (!phoneNumber) return;
 
       const message = `Hey ${contact.name}! I'd like to share my Spackl calendar with you. Click here to accept: [App Link]`;
-
-      const { result } = await SMS.sendSMSAsync([phoneNumber], message);
+      
+      const { result } = await SMS.sendSMSAsync(
+        [phoneNumber],
+        message
+      );
 
       if (result === 'sent') {
-        setContacts((prev) =>
-          prev.map((c) => (c.id === contact.id ? { ...c, shared: true } : c)),
+        setContacts(prev => 
+          prev.map(c => 
+            c.id === contact.id ? { ...c, shared: true } : c
+          )
         );
-        setSharedCount((prev) => prev + 1);
+        setSharedCount(prev => prev + 1);
+        
+        // Animate the FAB
+        Animated.sequence([
+          Animated.timing(fabAnim, {
+            toValue: 1.2,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fabAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
       }
     } catch (err) {
       setError('Failed to send SMS invitation');
@@ -165,12 +155,11 @@ export default function ContactsScreen() {
 
   const filteredContacts = useMemo(() => {
     if (!searchQuery.trim()) return contacts;
-
+    
     const searchTerms = searchQuery.toLowerCase().trim().split(' ');
-    return contacts.filter((contact) => {
-      const searchString =
-        `${contact.name} ${contact.email || ''} ${contact.phoneNumbers?.[0]?.number || ''}`.toLowerCase();
-      return searchTerms.every((term) => searchString.includes(term));
+    return contacts.filter(contact => {
+      const searchString = `${contact.name} ${contact.email || ''} ${contact.phoneNumbers?.[0]?.number || ''}`.toLowerCase();
+      return searchTerms.every(term => searchString.includes(term));
     });
   }, [contacts, searchQuery]);
 
@@ -185,17 +174,14 @@ export default function ContactsScreen() {
   if (error) {
     return (
       <View style={[styles.centerContainer, isDark && styles.containerDark]}>
-        <Text style={[styles.errorText, isDark && styles.textLight]}>
-          {error}
-        </Text>
+        <Text style={[styles.errorText, isDark && styles.textLight]}>{error}</Text>
         <Pressable
           style={styles.retryButton}
           onPress={() => {
             setError(null);
             setLoading(true);
             loadContacts();
-          }}
-        >
+          }}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </Pressable>
       </View>
@@ -206,23 +192,12 @@ export default function ContactsScreen() {
     <View style={[styles.container, isDark && styles.containerDark]}>
       <View style={[styles.header, isDark && styles.headerDark]}>
         <Text style={[styles.title, isDark && styles.textLight]}>Contacts</Text>
-        <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
-          Share calendars with your contacts
-        </Text>
+        <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>Share calendars with your contacts</Text>
       </View>
 
       <View style={[styles.searchContainer, isDark && styles.headerDark]}>
-        <View
-          style={[
-            styles.searchInputContainer,
-            isDark && styles.searchInputContainerDark,
-          ]}
-        >
-          <Search
-            size={20}
-            color={isDark ? '#94a3b8' : '#64748b'}
-            style={styles.searchIcon}
-          />
+        <View style={[styles.searchInputContainer, isDark && styles.searchInputContainerDark]}>
+          <Search size={20} color={isDark ? '#94a3b8' : '#64748b'} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, isDark && styles.textLight]}
             placeholder="Search contacts..."
@@ -233,8 +208,7 @@ export default function ContactsScreen() {
           {searchQuery.length > 0 && (
             <Pressable
               onPress={() => setSearchQuery('')}
-              style={styles.clearButton}
-            >
+              style={styles.clearButton}>
               <X size={20} color={isDark ? '#94a3b8' : '#64748b'} />
             </Pressable>
           )}
@@ -246,42 +220,32 @@ export default function ContactsScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={[styles.contactCard, isDark && styles.contactCardDark]}>
-            <Pressable
+            <Pressable 
               onPress={() => handleAvatarPress(item)}
-              style={styles.avatarContainer}
-            >
+              style={styles.avatarContainer}>
               {item.imageAvailable && item.image ? (
                 <Image source={{ uri: item.image.uri }} style={styles.avatar} />
               ) : (
-                <View
-                  style={[
-                    styles.avatar,
-                    styles.avatarPlaceholder,
-                    isDark && styles.avatarPlaceholderDark,
-                  ]}
-                >
-                  <UserIcon size={24} color={isDark ? '#94a3b8' : '#64748b'} />
+                <View style={[styles.avatar, styles.avatarPlaceholder, isDark && styles.avatarPlaceholderDark]}>
+                  <User size={24} color={isDark ? '#94a3b8' : '#64748b'} />
                 </View>
               )}
             </Pressable>
             <View style={styles.contactInfo}>
-              <Text style={[styles.name, isDark && styles.textLight]}>
-                {item.name}
-              </Text>
+              <Text style={[styles.name, isDark && styles.textLight]}>{item.name}</Text>
               {item.phoneNumbers?.[0] && (
                 <Text style={[styles.phone, isDark && styles.subtitleDark]}>
                   {item.phoneNumbers[0].number}
                 </Text>
               )}
             </View>
-            <Pressable
+            <Pressable 
               style={[
                 styles.shareButton,
                 item.shared && styles.shareButtonActive,
-                isDark && !item.shared && styles.shareButtonDark,
+                isDark && !item.shared && styles.shareButtonDark
               ]}
-              onPress={() => !item.shared && sendSharingInvite(item)}
-            >
+              onPress={() => !item.shared && sendSharingInvite(item)}>
               <Share2
                 size={20}
                 color={item.shared ? '#ffffff' : isDark ? '#94a3b8' : '#64748b'}
@@ -291,6 +255,19 @@ export default function ContactsScreen() {
         )}
         contentContainerStyle={styles.listContent}
       />
+
+      {sharedCount > 0 && (
+        <Animated.View 
+          style={[
+            styles.fab,
+            {
+              transform: [{ scale: fabAnim }]
+            }
+          ]}>
+          <Plus size={20} color="#ffffff" />
+          <Text style={styles.fabText}>{sharedCount}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -420,6 +397,7 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     width: 40,
+    height: 40,
     borderRadius: 20,
     backgroundColor: '#f1f5f9',
     justifyContent: 'center',
@@ -449,5 +427,30 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
   },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    backgroundColor: '#0891b2',
+    borderRadius: 28,
+    width: 56,
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  fabText: {
+    fontFamily: 'Inter_600SemiBold',
+    color: '#ffffff',
+    fontSize: 16,
+    marginLeft: 4,
+  },
 });
-

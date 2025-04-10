@@ -55,10 +55,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
 
   const saveGroups = async (updatedGroups: Group[]) => {
     try {
-      await AsyncStorage.setItem(
-        'contact_groups',
-        JSON.stringify(updatedGroups),
-      );
+      await AsyncStorage.setItem('contact_groups', JSON.stringify(updatedGroups));
       setGroups(updatedGroups);
     } catch (error) {
       console.error('Error saving groups:', error);
@@ -76,15 +73,12 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeGroup = async (id: string) => {
-    await saveGroups(groups.filter((group) => group.id !== id));
+    await saveGroups(groups.filter(group => group.id !== id));
   };
 
   const addMemberToGroup = async (groupId: string, contact: Contact) => {
-    const updatedGroups = groups.map((group) => {
-      if (
-        group.id === groupId &&
-        !group.members.find((member) => member.id === contact.id)
-      ) {
+    const updatedGroups = groups.map(group => {
+      if (group.id === groupId && !group.members.find(member => member.id === contact.id)) {
         return {
           ...group,
           members: [...group.members, contact],
@@ -96,11 +90,11 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeMemberFromGroup = async (groupId: string, contactId: string) => {
-    const updatedGroups = groups.map((group) => {
+    const updatedGroups = groups.map(group => {
       if (group.id === groupId) {
         return {
           ...group,
-          members: group.members.filter((member) => member.id !== contactId),
+          members: group.members.filter(member => member.id !== contactId),
         };
       }
       return group;
@@ -109,22 +103,20 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getContactGroups = (contactId: string) => {
-    return groups.filter((group) =>
-      group.members.some((member) => member.id === contactId),
+    return groups.filter(group => 
+      group.members.some(member => member.id === contactId)
     );
   };
 
   return (
-    <GroupContext.Provider
-      value={{
-        groups,
-        addGroup,
-        removeGroup,
-        addMemberToGroup,
-        removeMemberFromGroup,
-        getContactGroups,
-      }}
-    >
+    <GroupContext.Provider value={{
+      groups,
+      addGroup,
+      removeGroup,
+      addMemberToGroup,
+      removeMemberFromGroup,
+      getContactGroups,
+    }}>
       {children}
     </GroupContext.Provider>
   );

@@ -1,168 +1,183 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { format } from 'date-fns';
+import { Platform, Alert } from 'react-native';
+import { NotificationService, NotificationPreferences } from '@/services/NotificationService';
+import { useAuth } from '@/context/AuthContext';
 
-/**
- * Send a notification to participants about an event.
- * @param participants - List of participants with their names and optional emails.
- * @param eventDetails - Details of the event including title, start date, and optional location.
- */
-type NotificationContextType = {
+interface NotificationContextType {
   isEnabled: boolean;
-  notificationPermission: boolean;
+  eventRemindersEnabled: boolean;
+  loading: boolean;
+  error: string | null;
   toggleNotifications: () => Promise<void>;
-  requestPermissions: () => Promise<boolean>;
-  sendEventNotification: (
-    participants: { name: string; email?: string }[],
-    eventDetails: {
-      title: string;
-      startDate: Date;
-      location?: string;
-    },
-  ) => Promise<void>;
-};
+  toggleEventReminders: () => Promise<void>;
+  scheduleEventReminder: (eventId: string, title: string, startDate: Date, location?: string) => Promise<void>;
+  cancelEventReminders: (eventId: string) => Promise<void>;
+}
 
 const NotificationContext = createContext<NotificationContextType>({
   isEnabled: false,
-  toggleNotifications: async () => { },
-  requestPermissions: async () => false,
-  sendEventNotification: async () => { },
-  notificationPermission: false,
+  eventRemindersEnabled: false,
+  loading: true,
+  error: null,
+  toggleNotifications: async () => {},
+  toggleEventReminders: async () => {},
+  scheduleEventReminder: async () => {},
+  cancelEventReminders: async () => {},
 });
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+export function NotificationProvider({ children }: { children: React.ReactNode }) {
+  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
-export function NotificationProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [isEnabled, setIsEnabled] = useState(false);
+  const notificationService = user ? new NotificationService(user.uid) : null;
 
   useEffect(() => {
-    loadNotificationSettings();
-  }, []);
-
-  const loadNotificationSettings = async () => {
-    try {
-      const enabled = await AsyncStorage.getItem('notificationsEnabled');
-      setIsEnabled(enabled === 'true');
-    } catch (error) {
-      console.error('Error loading notification settings:', error);
+    if (notificationService) {
+      initializeNotifications();
     }
-  };
+  }, [notificationService]);
 
-  const requestPermissions = async () => {
-    if (Platform.OS === 'web') {
-      return false;
+  const initializeNotifications = async () => {
+    if (!notificationService || Platform.OS === 'web') {
+      setLoading(false);
+      return;
     }
 
     try {
-      const { status } = await Notifications.requestPermissionsAsync();
-      const isGranted = status === 'granted';
-      await AsyncStorage.setItem('notificationsEnabled', String(isGranted));
-      setIsEnabled(isGranted);
-      return isGranted;
-    } catch (error) {
-      console.error('Error requesting notification permissions:', error);
-      return false;
+      const prefs = await notificationService.initialize();
+      setPreferences(prefs);
+      setError(null);
+    } catch (err) {
+      console.error('Error initializing notifications:', err);
+      setError('Failed to initialize notifications');
+    } finally {
+      setLoading(false);
     }
   };
 
   const toggleNotifications = async () => {
-    if (Platform.OS === 'web') {
-      console.log('Notifications not supported on web');
+    if (!notificationService || Platform.OS === 'web' || loading) {
       return;
     }
 
+    setLoading(true);
     try {
-      if (!isEnabled) {
-        const granted = await requestPermissions();
-        if (!granted) {
-          return;
-        }
-      } else {
-        await AsyncStorage.setItem('notificationsEnabled', 'false');
-        setIsEnabled(false);
+      const status = await notificationService.checkNotificationStatus();
+      
+      if (!status.systemEnabled) {
+        Alert.alert(
+          'Notifications Disabled',
+          'Please enable notifications in your device settings to use this feature.',
+          [{ text: 'OK' }]
+        );
+        return;
       }
-    } catch (error) {
-      console.error('Error toggling notifications:', error);
+
+      const newEnabled = !preferences?.pushEnabled;
+      const success = await notificationService.togglePushNotifications(newEnabled);
+      
+      if (success) {
+        setPreferences(prev => prev ? {
+          ...prev,
+          pushEnabled: newEnabled,
+          eventReminders: newEnabled ? prev.eventReminders : false,
+        } : null);
+        setError(null);
+      } else {
+        if (newEnabled) {
+          Alert.alert(
+            'Permission Required',
+            'Please allow notifications in your device settings to enable this feature.',
+            [{ text: 'OK' }]
+          );
+        }
+        setError('Failed to toggle notifications');
+      }
+    } catch (err) {
+      console.error('Error toggling notifications:', err);
+      setError('Failed to toggle notifications');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const sendEventNotification = async (
-    participants: { name: string; email?: string }[],
-    eventDetails: {
-      title: string;
-      startDate: Date;
-      location?: string;
-    },
+  const toggleEventReminders = async () => {
+    if (!notificationService || Platform.OS === 'web' || loading || !preferences?.pushEnabled) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const newEnabled = !preferences.eventReminders;
+      const success = await notificationService.toggleEventReminders(newEnabled);
+      
+      if (success) {
+        setPreferences(prev => prev ? {
+          ...prev,
+          eventReminders: newEnabled,
+        } : null);
+        setError(null);
+      } else {
+        setError('Failed to toggle event reminders');
+      }
+    } catch (err) {
+      console.error('Error toggling event reminders:', err);
+      setError('Failed to toggle event reminders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const scheduleEventReminder = async (
+    eventId: string,
+    title: string,
+    startDate: Date,
+    location?: string
   ) => {
-    if (!isEnabled || Platform.OS === 'web') {
+    if (!notificationService || Platform.OS === 'web' || !preferences?.eventReminders) {
       return;
     }
 
     try {
-      const formattedDate = format(
-        eventDetails.startDate,
-        'MMM d, yyyy h:mm a',
-      );
-      const participantNames = participants.map((p) => p.name).join(', ');
+      await notificationService.scheduleEventReminder(eventId, title, startDate, location);
+      setError(null);
+    } catch (err) {
+      console.error('Error scheduling event reminder:', err);
+      setError('Failed to schedule reminder');
+    }
+  };
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `Event Update: ${eventDetails.title}`,
-          body: `The event has been updated!\n\nDate: ${formattedDate}\n${eventDetails.location ? `Location: ${eventDetails.location}\n` : ''}Participants: ${participantNames}`,
-          data: { eventDetails },
-        },
-        trigger: null, // Send immediately
-      });
+  const cancelEventReminders = async (eventId: string) => {
+    if (!notificationService || Platform.OS === 'web') {
+      return;
+    }
 
-      // Schedule a reminder notification 30 minutes before the event
-      const reminderTime = new Date(
-        eventDetails.startDate.getTime() - 30 * 60000,
-      );
-      if (reminderTime > new Date()) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: `Reminder: ${eventDetails.title}`,
-            body: `Event starting in 30 minutes\n${eventDetails.location ? `Location: ${eventDetails.location}` : ''}`,
-            data: { eventDetails },
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DATE,
-            date: reminderTime,
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Error sending notifications:', error);
+    try {
+      await notificationService.cancelEventReminders(eventId);
+      setError(null);
+    } catch (err) {
+      console.error('Error canceling event reminders:', err);
+      setError('Failed to cancel reminders');
     }
   };
 
   return (
     <NotificationContext.Provider
       value={{
-        isEnabled,
-        notificationPermission: isEnabled,
+        isEnabled: preferences?.pushEnabled ?? false,
+        eventRemindersEnabled: preferences?.eventReminders ?? false,
+        loading,
+        error,
         toggleNotifications,
-        requestPermissions,
-        sendEventNotification,
-      }}
-    >
+        toggleEventReminders,
+        scheduleEventReminder,
+        cancelEventReminders,
+      }}>
       {children}
     </NotificationContext.Provider>
   );
 }
 
 export const useNotifications = () => useContext(NotificationContext);
-
-export { NotificationContext };
