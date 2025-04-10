@@ -1,207 +1,173 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, onAuthStateChanged, getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { UserType, events } from '@/types/userType';
-import { FIREBASE_AUTH, FIREBASE_FIRESTORE } from '@/firebaseConfig';
-import { collection, doc, getDoc, setDoc } from 'firebase/firestore';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { useRouter, useSegments } from 'expo-router';
 import {
-  signOut,
-  signInWithGoogle as googleSignIn,
-} from '@/services/auth';
-import { router } from 'expo-router';
-import { Alert } from 'react-native/Libraries/Alert/Alert';
+  User,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithCredential,
+} from 'firebase/auth';
+import { FIREBASE_AUTH } from '@/firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const auth = FIREBASE_AUTH;
-const usersCollection = collection(FIREBASE_FIRESTORE, 'users');
-const eventsCollection = collection(FIREBASE_FIRESTORE, 'events');
-const [authUser, setAuthUser] = useState<User | null>(null);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState<string | null>(null);
-const [userData, setUserData] = useState<UserType | null>(null);
-const [userEvents, setUserEvents] = useState<events[] | null>(null);
-
-useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    try {
-      setAuthUser(user);
-      setLoading(false);
-
-      if (user) {
-        const userDocRef = doc(usersCollection, user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-          const userDataFromDB = userDocSnap.data() as UserType;
-          setUserData(userDataFromDB);
-        } else {
-          const newUserData: UserType = {
-            email: user.email || "",
-            id: user.uid || "",
-            firstName: "",
-            lastName: "",
-            profilePic_url: "",
-            subscription: "",
-            type: "user",
-          };
-
-          try {
-            await setDoc(userDocRef, newUserData);
-            setUserData(newUserData);
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Failed to create user profile';
-            setError(errorMessage);
-            Alert.alert(
-              'Profile Setup Error',
-              'There was an error setting up your profile. Please try again or contact support.',
-              [
-                {
-                  text: 'Try Again',
-                  onPress: () => router.replace('/(auth)')
-                }
-              ]
-            );
-          }
-        }
-      } else {
-        setUserData(null);
-        setUserEvents([]);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      setError(errorMessage);
-      Alert.alert(
-        'Authentication Error',
-        'There was a problem with the authentication process. Please try again.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/(auth)')
-          }
-        ]
-      );
-    }
-  });
-
-  return unsubscribe;
-}, []);
 interface AuthContextType {
   user: User | null;
+  signUp: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: (idToken: string) => Promise<void>;
+  signOut: () => Promise<void>;
   loading: boolean;
   error: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  signUp: async () => {},
+  signIn: async () => {},
+  signInWithGoogle: async () => {},
+  signOut: async () => {},
   loading: true,
   error: null,
-  signIn: async () => { },
-  signUp: async () => { },
-  signOut: async () => { },
-  signInWithGoogle: async () => { },
-  clearError: () => { },
 });
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+// This hook will protect the route access based on user authentication
+function useProtectedRoute(user: User | null, isLoading: boolean) {
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === 'auth';
+
+    if (!user && !inAuthGroup) {
+      // Redirect to the sign-in page if not authenticated
+      router.replace('/auth/login');
+    } else if (user && inAuthGroup) {
+      // Redirect away from the sign-in page if authenticated
+      router.replace('/(tabs)');
+    }
+  }, [user, isLoading, segments]);
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useProtectedRoute(user, loading);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (user: User | null) => {
-        setUser(user);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Auth state change error:', error);
-        setLoading(false);
-      },
-    );
+    const unsubscribe = onAuthStateChanged(FIREBASE_AUTH, async (user) => {
+      setUser(user);
+      setLoading(false);
+
+      if (user) {
+        // Store user session
+        await AsyncStorage.setItem('user', JSON.stringify(user));
+      } else {
+        await AsyncStorage.removeItem('user');
+      }
+    });
+
+    // Check for stored session on mount
+    AsyncStorage.getItem('user').then((storedUser) => {
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+      setLoading(false);
+    });
+
     return () => unsubscribe();
   }, []);
 
-  const handleSignIn = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string) => {
     try {
       setError(null);
-      await signIn(email, password);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to sign in');
-      throw error;
-    }
-  };
-
-  const handleSignUp = async (email: string, password: string) => {
-    try {
-      setError(null);
-      await signUp(email, password);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to sign up');
-      throw error;
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      setError(null);
-      await signOut();
-      router.replace('/welcome' as any);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to sign out');
-      throw error;
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      setError(null);
-      await googleSignIn();
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to sign in with Google',
+      setLoading(true);
+      const userCredential = await createUserWithEmailAndPassword(
+        FIREBASE_AUTH,
+        email,
+        password
       );
+      setUser(userCredential.user);
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      setError(error.message);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const clearError = () => setError(null);
+  const signIn = async (email: string, password: string) => {
+    try {
+      setError(null);
+      setLoading(true);
+      const userCredential = await signInWithEmailAndPassword(
+        FIREBASE_AUTH,
+        email,
+        password
+      );
+      setUser(userCredential.user);
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (loading) {
-    return null; // or a loading spinner component
-  }
+  const signInWithGoogle = async (idToken: string) => {
+    try {
+      setError(null);
+      setLoading(true);
+      const credential = GoogleAuthProvider.credential(idToken);
+      const userCredential = await signInWithCredential(FIREBASE_AUTH, credential);
+      setUser(userCredential.user);
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      await firebaseSignOut(FIREBASE_AUTH);
+      setUser(null);
+      await AsyncStorage.removeItem('user');
+      router.replace('/auth/login');
+    } catch (error: any) {
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        signUp,
+        signIn,
+        signInWithGoogle,
+        signOut,
         loading,
         error,
-        signIn: handleSignIn,
-        signUp: handleSignUp,
-        signOut: handleSignOut,
-        signInWithGoogle: handleGoogleSignIn,
-        clearError,
-      }}
-    >
+      }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export const useAuth = () => useContext(AuthContext);
-
-async function signIn(email: string, password: string) {
-  const auth = getAuth();
-  return (await signInWithEmailAndPassword(auth, email, password)).user;
-}
-async function signUp(email: string, password: string) {
-  const auth = getAuth();
-  return (await createUserWithEmailAndPassword(auth, email, password)).user;
-}
-

@@ -1,353 +1,281 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-} from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Platform, ActivityIndicator, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import {
-  format,
-  addMonths,
-  subMonths,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  isToday,
-  isPast,
-} from 'date-fns';
-import {
-  Calendar as CalendarIcon,
-  MapPin,
-  Users,
-  Plus,
-  CircleAlert as AlertCircle,
-  ChevronLeft,
-  ChevronRight,
-  ArrowLeft,
-} from 'lucide-react-native';
+import * as Calendar from 'expo-calendar';
+import { format, parseISO, startOfDay, endOfDay, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, isPast, startOfWeek, endOfWeek } from 'date-fns';
+import { Calendar as CalendarIcon, MapPin, Users, Plus, CircleAlert as AlertCircle, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useCalendar } from '@/context/CalendarContext';
-import type { CalendarEvent } from '@/types/calendar';
-import { FIREBASE_AUTH } from '@/firebaseConfig';
-import { onAuthStateChanged, User } from 'firebase/auth';
 
-const auth = FIREBASE_AUTH;
 export default function CalendarScreen() {
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showEvents, setShowEvents] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(!!auth.currentUser);
   const router = useRouter();
-  const { theme } = useTheme();
-  const { events, loading, error, refreshEvents } = useCalendar();
+  const { isDark } = useTheme();
+  const { events, loading, error, refreshEvents, clearError } = useCalendar();
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [showEvents, setShowEvents] = useState(false);
+  const [fabAnim] = useState(new Animated.Value(1));
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
-      setIsAuthenticated(!!user);
-      if (!user) {
-        router.replace('/sign-in');
-      }
-    });
+    refreshEvents(currentMonth);
+  }, [currentMonth, refreshEvents]);
 
-    return () => unsubscribe();
-  }, [router]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      void refreshEvents();
-    }
-  }, [isAuthenticated, refreshEvents]);
-
-  const handleDateChange = useCallback((date: Date) => {
-    setSelectedDate(date);
-    setShowEvents(false);
-  }, []);
-
-  const handlePrevMonth = useCallback(() => {
-    setSelectedDate((prev) => subMonths(prev, 1));
-    setShowEvents(false);
-  }, []);
-
-  const handleNextMonth = useCallback(() => {
-    setSelectedDate((prev) => addMonths(prev, 1));
-    setShowEvents(false);
-  }, []);
-
-  const handleDayPress = useCallback((date: Date) => {
+  const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     setShowEvents(true);
-  }, []);
+  };
 
-  const handleAddEvent = useCallback(() => {
-    router.push('/add-event');
-  }, [router]);
+  const handleAddEvent = () => {
+    Animated.sequence([
+      Animated.timing(fabAnim, {
+        toValue: 0.8,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fabAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      router.push('/calendar/event?forceNew=true');
+    });
+  };
 
-  const handleEventPress = useCallback(
-    (event: CalendarEvent) => {
-      router.push(`/event/${event.id}`);
-    },
-    [router],
-  );
+  const renderCalendarDay = useCallback((date: Date) => {
+    const dayEvents = events.filter(event => 
+      isSameDay(new Date(event.startDate), date)
+    );
+    const isSelected = isSameDay(date, selectedDate);
+    const isCurrentMonth = isSameMonth(date, currentMonth);
+    const isPastDate = isPast(date) && !isToday(date);
 
-  const renderCalendarHeader = useCallback(() => {
     return (
-      <View style={styles.calendarHeader}>
-        <Pressable onPress={handlePrevMonth} style={styles.headerButton}>
-          <ChevronLeft
-            size={24}
-            color={theme === 'dark' ? '#94a3b8' : '#64748b'}
-          />
-        </Pressable>
-        <Text style={[styles.monthText, theme === 'dark' && styles.textLight]}>
-          {format(selectedDate, 'MMMM yyyy')}
+      <Pressable
+        key={date.toISOString()}
+        style={[
+          styles.calendarDay,
+          !isCurrentMonth && styles.outsideMonth,
+          isSelected && styles.selectedDay,
+          isDark && styles.calendarDayDark,
+          isSelected && isDark && styles.selectedDayDark,
+        ]}
+        onPress={() => !isPastDate && handleDateSelect(date)}
+        disabled={isPastDate}>
+        <Text
+          style={[
+            styles.dayText,
+            isToday(date) && styles.todayText,
+            isSelected && styles.selectedDayText,
+            !isCurrentMonth && styles.outsideMonthText,
+            isDark && styles.textLight,
+            isPastDate && styles.pastDateText,
+          ]}>
+          {format(date, 'd')}
         </Text>
-        <Pressable onPress={handleNextMonth} style={styles.headerButton}>
-          <ChevronRight
-            size={24}
-            color={theme === 'dark' ? '#94a3b8' : '#64748b'}
-          />
-        </Pressable>
-      </View>
+        {dayEvents.length > 0 && (
+          <View style={[
+            styles.eventDot,
+            isDark && styles.eventDotDark,
+            isSelected && styles.selectedEventDot
+          ]} />
+        )}
+      </Pressable>
     );
-  }, [selectedDate, theme, handlePrevMonth, handleNextMonth]);
+  }, [events, selectedDate, currentMonth, isDark]);
 
-  const renderCalendarDays = useCallback(() => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return (
-      <View style={styles.daysRow}>
-        {days.map((day) => (
-          <View key={day} style={styles.dayCell}>
-            <Text
-              style={[styles.dayText, theme === 'dark' && styles.textMuted]}
-            >
-              {day}
-            </Text>
-          </View>
-        ))}
-      </View>
-    );
-  }, [theme]);
+  const generateCalendarDays = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const calendarStart = startOfWeek(monthStart);
+    const monthEnd = endOfMonth(currentMonth);
+    const calendarEnd = endOfWeek(monthEnd);
 
-  const renderCalendarGrid = useCallback(() => {
-    const start = startOfMonth(selectedDate);
-    const end = endOfMonth(selectedDate);
-    const days = eachDayOfInterval({ start, end });
+    const days = eachDayOfInterval({ 
+      start: calendarStart,
+      end: calendarEnd 
+    });
 
-    return (
-      <View style={styles.calendarGrid}>
-        {days.map((date) => {
-          const isSelected = isSameDay(date, selectedDate);
-          const isCurrentMonth = isSameMonth(date, selectedDate);
-          const isCurrentDay = isToday(date);
-          const isPastDay = isPast(date) && !isCurrentDay;
+    const weeks: Date[][] = [];
+    let currentWeek: Date[] = [];
 
-          const dayEvents = events.filter((event) =>
-            isSameDay(new Date(event.startDate), date),
-          );
+    days.forEach(day => {
+      if (currentWeek.length === 7) {
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+      currentWeek.push(day);
+    });
 
-          return (
-            <Pressable
-              key={date.toISOString()}
-              style={[
-                styles.dateCell,
-                !isCurrentMonth && styles.otherMonthCell,
-                isSelected && styles.selectedCell,
-                theme === 'dark' && styles.dateCellDark,
-              ]}
-              onPress={() => handleDayPress(date)}
-            >
-              <Text
-                style={[
-                  styles.dateText,
-                  isPastDay && styles.pastDateText,
-                  isCurrentDay && styles.currentDateText,
-                  isSelected && styles.selectedDateText,
-                  theme === 'dark' && styles.textLight,
-                ]}
-              >
-                {format(date, 'd')}
-              </Text>
-              {dayEvents.length > 0 && (
-                <View
-                  style={[
-                    styles.eventDot,
-                    isSelected && styles.selectedEventDot,
-                    theme === 'dark' && styles.eventDotDark,
-                  ]}
-                />
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
-    );
-  }, [selectedDate, events, theme, handleDayPress]);
-
-  const renderEventsList = useCallback(() => {
-    const dayEvents = events.filter((event) =>
-      isSameDay(new Date(event.startDate), selectedDate),
-    );
-
-    if (dayEvents.length === 0) {
-      return (
-        <View style={styles.noEventsContainer}>
-          <CalendarIcon
-            size={48}
-            color={theme === 'dark' ? '#94a3b8' : '#64748b'}
-          />
-          <Text
-            style={[styles.noEventsText, theme === 'dark' && styles.textMuted]}
-          >
-            No events scheduled
-          </Text>
-        </View>
-      );
+    if (currentWeek.length > 0) {
+      weeks.push(currentWeek);
     }
 
-    return (
-      <ScrollView style={styles.eventsList}>
-        {dayEvents.map((event) => (
-          <Pressable
-            key={event.id}
-            style={[styles.eventCard, theme === 'dark' && styles.eventCardDark]}
-            onPress={() => handleEventPress(event)}
-          >
-            <View style={styles.eventHeader}>
-              <Text
-                style={[styles.eventTime, theme === 'dark' && styles.textLight]}
-              >
-                {format(new Date(event.startDate), 'h:mm a')}
-              </Text>
-              {event.status === 'tentative' && (
-                <AlertCircle
-                  size={16}
-                  color={theme === 'dark' ? '#94a3b8' : '#64748b'}
-                />
-              )}
-            </View>
-            <Text
-              style={[styles.eventTitle, theme === 'dark' && styles.textLight]}
-            >
-              {event.title}
-            </Text>
-            {event.location && (
-              <View style={styles.eventDetail}>
-                <MapPin
-                  size={16}
-                  color={theme === 'dark' ? '#94a3b8' : '#64748b'}
-                />
-                <Text
-                  style={[
-                    styles.eventDetailText,
-                    theme === 'dark' && styles.textMuted,
-                  ]}
-                >
-                  {event.location}
-                </Text>
-              </View>
-            )}
-            {event.attendees && event.attendees.length > 0 && (
-              <View style={styles.eventDetail}>
-                <Users
-                  size={16}
-                  color={theme === 'dark' ? '#94a3b8' : '#64748b'}
-                />
-                <Text
-                  style={[
-                    styles.eventDetailText,
-                    theme === 'dark' && styles.textMuted,
-                  ]}
-                >
-                  {event.attendees.length} attendee
-                  {event.attendees.length !== 1 ? 's' : ''}
-                </Text>
-              </View>
-            )}
-          </Pressable>
-        ))}
-      </ScrollView>
-    );
-  }, [events, selectedDate, theme, handleEventPress]);
+    return weeks;
+  };
 
-  if (!isAuthenticated) {
+  if (loading) {
     return (
-      <View
-        style={[styles.container, theme === 'dark' && styles.containerDark]}
-      >
-        <ActivityIndicator
-          size="large"
-          color={theme === 'dark' ? '#94a3b8' : '#64748b'}
-        />
+      <View style={[styles.centerContainer, isDark && styles.containerDark]}>
+        <ActivityIndicator size="large" color="#0891b2" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.centerContainer, isDark && styles.containerDark]}>
+        <AlertCircle size={48} color="#ef4444" style={styles.errorIcon} />
+        <Text style={[styles.errorText, isDark && styles.textLight]}>{error}</Text>
+        <Pressable
+          style={styles.retryButton}
+          onPress={() => {
+            clearError();
+            refreshEvents(currentMonth);
+          }}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const selectedDateEvents = events.filter(event => 
+    isSameDay(new Date(event.startDate), selectedDate)
+  );
+
+  if (showEvents) {
+    return (
+      <View style={[styles.container, isDark && styles.containerDark]}>
+        <View style={[styles.header, isDark && styles.headerDark]}>
+          <View style={styles.headerLeft}>
+            <Pressable
+              style={styles.backButton}
+              onPress={() => setShowEvents(false)}>
+              <ArrowLeft size={24} color={isDark ? '#94a3b8' : '#64748b'} />
+            </Pressable>
+            <Pressable
+              style={styles.addButton}
+              onPress={handleAddEvent}>
+              <Plus size={24} color="#ffffff" />
+            </Pressable>
+          </View>
+          
+          <View style={styles.headerCenter}>
+            <Text style={[styles.selectedMonth, isDark && styles.textLight]}>
+              {format(selectedDate, 'MMMM yyyy')}
+            </Text>
+            <Text style={[styles.selectedDay, isDark && styles.textMuted]}>
+              {format(selectedDate, 'EEEE, d')}
+            </Text>
+          </View>
+          
+          <View style={styles.headerRight} />
+        </View>
+
+        <ScrollView style={styles.eventsList}>
+          {selectedDateEvents.length === 0 ? (
+            <View style={styles.emptyState}>
+              <CalendarIcon size={48} color={isDark ? '#94a3b8' : '#64748b'} />
+              <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
+                Nothing scheduled
+              </Text>
+              <Text style={[styles.emptyStateSubtitle, isDark && styles.textMuted]}>
+                Tap + to create a new event
+              </Text>
+            </View>
+          ) : (
+            selectedDateEvents.map((event) => (
+              <Pressable
+                key={event.id}
+                style={[styles.eventCard, isDark && styles.eventCardDark]}
+                onPress={() => router.push(`/calendar/event?id=${event.id}&calendarId=${event.calendarId}`)}>
+                <View style={styles.eventTime}>
+                  <Text style={[styles.timeText, isDark && { color: '#38bdf8' }]}>
+                    {format(new Date(event.startDate), 'HH:mm')}
+                  </Text>
+                  {event.status === 'tentative' && (
+                    <Text style={styles.tentativeTag}>Tentative</Text>
+                  )}
+                </View>
+                <View style={styles.eventDetails}>
+                  <Text style={[styles.eventTitle, isDark && styles.textLight]}>
+                    {event.title}
+                  </Text>
+                  {event.location && (
+                    <View style={styles.eventMetaInfo}>
+                      <MapPin size={16} color={isDark ? '#94a3b8' : '#64748b'} />
+                      <Text style={[styles.eventLocation, isDark && styles.textMuted]}>
+                        {event.location}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.eventMetaInfo}>
+                    <Users size={16} color={isDark ? '#94a3b8' : '#64748b'} />
+                    <Text style={[styles.eventParticipants, isDark && styles.textMuted]}>
+                      {event.attendees?.length 
+                        ? `${event.attendees.length} participant${event.attendees.length === 1 ? '' : 's'}`
+                        : 'No participants'}
+                    </Text>
+                  </View>
+                </View>
+              </Pressable>
+            ))
+          )}
+        </ScrollView>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, theme === 'dark' && styles.containerDark]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, theme === 'dark' && styles.textLight]}>
-          Calendar
-        </Text>
-      </View>
-
-      <View style={styles.calendar}>
-        {renderCalendarHeader()}
-        {renderCalendarDays()}
-        {renderCalendarGrid()}
-      </View>
-
-      {showEvents && (
-        <View
-          style={[
-            styles.eventsContainer,
-            theme === 'dark' && styles.eventsContainerDark,
-          ]}
-        >
-          <View style={styles.eventsHeader}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => setShowEvents(false)}
-              hitSlop={8}
-            >
-              <ArrowLeft
-                size={24}
-                color={theme === 'dark' ? '#94a3b8' : '#64748b'}
-              />
-            </Pressable>
-            <Text
-              style={[styles.eventsDate, theme === 'dark' && styles.textLight]}
-            >
-              {format(selectedDate, 'EEEE, MMMM d')}
-            </Text>
-          </View>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator
-                size="large"
-                color={theme === 'dark' ? '#94a3b8' : '#64748b'}
-              />
-            </View>
-          ) : error ? (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={48} color="#ef4444" />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : (
-            renderEventsList()
-          )}
+    <View style={[styles.container, isDark && styles.containerDark]}>
+      <View style={[styles.header, isDark && styles.headerDark]}>
+        <View style={styles.monthSelector}>
+          <Pressable
+            onPress={() => setCurrentMonth(prev => subMonths(prev, 1))}
+            style={styles.monthButton}>
+            <ChevronLeft size={24} color={isDark ? '#94a3b8' : '#64748b'} />
+          </Pressable>
+          <Text style={[styles.monthText, isDark && styles.textLight]}>
+            {format(currentMonth, 'MMMM yyyy')}
+          </Text>
+          <Pressable
+            onPress={() => setCurrentMonth(prev => addMonths(prev, 1))}
+            style={styles.monthButton}>
+            <ChevronRight size={24} color={isDark ? '#94a3b8' : '#64748b'} />
+          </Pressable>
         </View>
-      )}
+      </View>
 
-      <Pressable
-        style={[styles.fab, theme === 'dark' && styles.fabDark]}
-        onPress={handleAddEvent}
-      >
-        <Plus size={24} color="#fff" />
-      </Pressable>
+      <View style={[styles.calendar, isDark && styles.calendarDark]}>
+        <View style={styles.weekDays}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <Text
+              key={day}
+              style={[styles.weekDayText, isDark && styles.textMuted]}>
+              {day}
+            </Text>
+          ))}
+        </View>
+        {generateCalendarDays().map((week, weekIndex) => (
+          <View key={weekIndex} style={styles.weekRow}>
+            {week.map(date => renderCalendarDay(date))}
+          </View>
+        ))}
+      </View>
+
+      <Animated.View 
+        style={[
+          styles.fab,
+          isDark && styles.fabDark,
+          {
+            transform: [{ scale: fabAnim }]
+          }
+        ]}>
+        <Pressable
+          style={styles.fabButton}
+          onPress={handleAddEvent}>
+          <Plus size={24} color="#ffffff" />
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -355,208 +283,321 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8fafc',
   },
   containerDark: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#0f172a',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
   },
   header: {
-    padding: 24,
-    paddingBottom: 16,
+    padding: 20,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#0f172a',
+  headerDark: {
+    backgroundColor: '#1e293b',
+    borderBottomColor: '#334155',
   },
-  calendar: {
-    paddingHorizontal: 16,
-  },
-  calendarHeader: {
+  monthSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    paddingHorizontal: 16,
   },
-  headerButton: {
+  monthButton: {
     padding: 8,
   },
   monthText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 20,
     color: '#0f172a',
   },
-  daysRow: {
+  calendar: {
+    padding: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  weekDays: {
     flexDirection: 'row',
     marginBottom: 8,
   },
-  dayCell: {
+  weekDayText: {
     flex: 1,
-    alignItems: 'center',
-    padding: 8,
-  },
-  dayText: {
+    textAlign: 'center',
+    fontFamily: 'Inter_500Medium',
     fontSize: 14,
     color: '#64748b',
   },
-  calendarGrid: {
+  weekRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    marginBottom: 8,
   },
-  dateCell: {
-    width: '14.28%',
+  calendarDay: {
+    flex: 1,
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
     borderRadius: 8,
+    backgroundColor: '#ffffff',
   },
-  dateCellDark: {
+  calendarDayDark: {
     backgroundColor: '#1e293b',
   },
-  otherMonthCell: {
-    opacity: 0.5,
-  },
-  selectedCell: {
-    backgroundColor: '#3b82f6',
-  },
-  dateText: {
+  dayText: {
+    fontFamily: 'Inter_400Regular',
     fontSize: 16,
     color: '#0f172a',
   },
-  pastDateText: {
+  outsideMonth: {
+    opacity: 0.5,
+  },
+  outsideMonthText: {
     color: '#94a3b8',
   },
-  currentDateText: {
-    color: '#3b82f6',
-    fontWeight: '600',
+  selectedDay: {
+    backgroundColor: '#0891b2',
   },
-  selectedDateText: {
-    color: '#fff',
-    fontWeight: '600',
+  selectedDayDark: {
+    backgroundColor: '#0e7490',
+  },
+  selectedDayText: {
+    color: '#ffffff',
+  },
+  todayText: {
+    fontFamily: 'Inter_600SemiBold',
+    color: '#0891b2',
+  },
+  pastDateText: {
+    color: '#94a3b8',
   },
   eventDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#0891b2',
     marginTop: 4,
   },
   eventDotDark: {
-    backgroundColor: '#60a5fa',
+    backgroundColor: '#38bdf8',
   },
   selectedEventDot: {
-    backgroundColor: '#fff',
-  },
-  eventsContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-  },
-  eventsContainerDark: {
-    backgroundColor: '#1e293b',
-  },
-  eventsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  backButton: {
-    marginRight: 16,
-  },
-  eventsDate: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#0f172a',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#ef4444',
-    marginTop: 16,
-  },
-  noEventsContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noEventsText: {
-    fontSize: 16,
-    color: '#64748b',
-    marginTop: 16,
+    backgroundColor: '#ffffff',
   },
   eventsList: {
     flex: 1,
+    padding: 16,
   },
   eventCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   eventCardDark: {
-    backgroundColor: '#334155',
-  },
-  eventHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    backgroundColor: '#1e293b',
   },
   eventTime: {
-    fontSize: 14,
-    color: '#0f172a',
+    marginRight: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 60,
+  },
+  timeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#0891b2',
+  },
+  tentativeTag: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 10,
+    color: '#9333ea',
+    backgroundColor: '#f3e8ff',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  eventDetails: {
+    flex: 1,
   },
   eventTitle: {
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
-    fontWeight: '600',
     color: '#0f172a',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  eventDetail: {
+  eventMetaInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginBottom: 4,
   },
-  eventDetailText: {
+  eventLocation: {
+    fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: '#64748b',
     marginLeft: 8,
   },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#3b82f6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+  eventParticipants: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#64748b',
+    marginLeft: 8,
   },
-  fabDark: {
-    backgroundColor: '#60a5fa',
+  emptyState: {
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyStateTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 20,
+    color: '#0f172a',
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  createEventButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0891b2',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  createEventButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    color: '#ffffff',
+    fontSize: 16,
+    marginLeft: 8,
   },
   textLight: {
     color: '#f8fafc',
   },
+  subtitleDark: {
+    color: '#94a3b8',
+  },
+  backButton: {
+    padding: 8,
+  },
+  backButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#64748b',
+    marginLeft: 4,
+  },
+  dateTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 20,
+    color: '#0f172a',
+    flex: 1,
+    textAlign: 'center',
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0891b2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyStateSubtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+    color: '#64748b',
+    marginTop: 8,
+  },
+  calendarDark: {
+    backgroundColor: '#1e293b',
+    borderBottomColor: '#334155',
+  },
   textMuted: {
     color: '#94a3b8',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerCenter: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerRight: {
+    width: 80,
+  },
+  selectedMonth: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 20,
+    color: '#0f172a',
+  },
+  selectedDay: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  errorIcon: {
+    marginBottom: 16,
+  },
+  errorText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 16,
+    color: '#ef4444',
+    marginBottom: 16,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
+  retryButton: {
+    backgroundColor: '#0891b2',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    backgroundColor: '#0891b2',
+    borderRadius: 28,
+    width: 56,
+    height: 56,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  fabDark: {
+    backgroundColor: '#0e7490',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+  },
+  fabButton: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

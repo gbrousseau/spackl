@@ -1,53 +1,41 @@
 export default {
   expo: {
-    name: 'spackl',
+    name: 'Spackl',
     slug: 'spackl',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
+    scheme: 'spackl',
     userInterfaceStyle: 'automatic',
-    splash: {
-      image: './assets/images/splash.png',
-      resizeMode: 'contain',
-      backgroundColor: '#ffffff',
+    plugins: [
+      [
+        'expo-notifications',
+        {
+          icon: './assets/images/notification-icon.png',
+          color: '#0891b2',
+          sounds: ['./assets/sounds/notification.wav'],
+        },
+      ],
+    ],
+    notification: {
+      icon: './assets/images/notification-icon.png',
+      color: '#0891b2',
+      iosDisplayInForeground: true,
     },
-    assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.spackl.app',
-      googleServicesFile: './GoogleService-Info.plist',
+      bundleIdentifier: 'com.hamhammer.spackle',
+      infoPlist: {
+        UIBackgroundModes: ['remote-notification'],
+      },
     },
     android: {
+      package: 'com.hammer.spacklapp',
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
-        backgroundColor: '#ffffff',
+        backgroundColor: '#0891b2',
       },
-      package: 'com.spackl.app',
-      googleServicesFile: './google-services.json',
-    },
-    web: {
-      favicon: './assets/images/favicon.png',
-      config: {
-        firebase: {
-          apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-          authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-          projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-          storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-          messagingSenderId:
-            process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-          appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-        },
-      },
-    },
-    plugins: [
-      '@react-native-google-signin/google-signin',
-      '@react-native-firebase/app',
-      '@react-native-firebase/auth',
-    ],
-    extra: {
-      eas: {
-        projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
-      },
+      permissions: ['NOTIFICATIONS', 'VIBRATE'],
     },
   },
 };
