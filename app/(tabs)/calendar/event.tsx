@@ -10,11 +10,14 @@ import { useCalendar } from '@/context/CalendarContext';
 import { LocationAutocomplete } from '@/components/LocationAutocomplete';
 import { DateTimePicker } from '@/components/DateTimePicker';
 import { useEventSync } from '@/hooks/useEventSync';
+import { EventService } from '@/services/EventService';
+import { FIREBASE_AUTH } from '@/firebaseConfig';
 
 type Participant = {
   id: string;
   name: string;
   email?: string;
+  phoneNumber?: string;
   imageAvailable?: boolean;
   image?: { uri: string };
 };
@@ -27,12 +30,35 @@ export default function EventScreen() {
   const id = typeof params.id === 'string' ? params.id : null;
   const calendarId = typeof params.calendarId === 'string' ? params.calendarId : null;
   const forceNew = typeof params.forceNew === 'string' ? params.forceNew === 'true' : false;
-  const { saveEvent, updateEvent, loading: isSaving } = useEventSync();
+  const selectedDateParam = typeof params.selectedDate === 'string' ? params.selectedDate : null;
+  const { saveEvent, updateEvent, loading: isSaving, deleteEvent } = useEventSync();
+  
+  // Get the current time
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  
+  // Create a date object for the selected date with current time
+  const getSelectedDateWithCurrentTime = () => {
+    if (selectedDateParam) {
+      const selectedDate = new Date(selectedDateParam);
+      selectedDate.setHours(currentHour, currentMinute, 0, 0);
+      return selectedDate;
+    }
+    return now;
+  };
+  
+  // Create a date object for the end time (1 hour after start)
+  const getEndDateWithOffset = (startDate: Date) => {
+    const endDate = new Date(startDate);
+    endDate.setHours(endDate.getHours() + 1);
+    return endDate;
+  };
   
   const [event, setEvent] = useState({
     title: '',
-    startDate: new Date(),
-    endDate: addDays(new Date(), 1),
+    startDate: getSelectedDateWithCurrentTime(),
+    endDate: getEndDateWithOffset(getSelectedDateWithCurrentTime()),
     location: '',
     notes: '',
   });
@@ -42,6 +68,23 @@ export default function EventScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Function to reset form state
+  const resetFormState = () => {
+    const startDate = getSelectedDateWithCurrentTime();
+    const endDate = getEndDateWithOffset(startDate);
+    
+    setEvent({
+      title: '',
+      startDate: startDate,
+      endDate: endDate,
+      location: '',
+      notes: '',
+    });
+    setParticipants([]);
+    setSearchQuery('');
+    setError(null);
+  };
 
   const loadEvent = async () => {
     if (forceNew) {
@@ -90,6 +133,7 @@ export default function EventScreen() {
       }
 
       try {
+        // Get event from local calendar
         const eventDetails = await Calendar.getEventAsync(id);
         
         if (!eventDetails) {
@@ -98,6 +142,7 @@ export default function EventScreen() {
           return;
         }
 
+        // Set basic event details from local calendar
         setEvent({
           title: eventDetails.title,
           startDate: new Date(eventDetails.startDate),
@@ -106,12 +151,39 @@ export default function EventScreen() {
           notes: eventDetails.notes || '',
         });
 
+        // Try to get attendees from local calendar first
         if ('attendees' in eventDetails) {
-          setParticipants((eventDetails.attendees as Array<{email?: string, name?: string}>).map(attendee => ({
+          setParticipants((eventDetails.attendees as Array<{email?: string, name?: string, phoneNumber?: string}>).map(attendee => ({
             id: attendee.email || attendee.name || '',
             name: attendee.name || attendee.email || '',
             email: attendee.email || '',
+            phoneNumber: attendee.phoneNumber || '',
           })));
+        }
+
+        // Also fetch event details from Firestore to get the complete attendee list
+        try {
+          const currentUser = FIREBASE_AUTH.currentUser;
+          if (!currentUser) {
+            console.warn('No authenticated user found, skipping Firestore fetch');
+            return;
+          }
+          
+          const eventService = new EventService(currentUser.uid);
+          const firestoreEvent = await eventService.getEvent(id);
+          
+          if (firestoreEvent && firestoreEvent.attendees && firestoreEvent.attendees.length > 0) {
+            // Update participants with Firestore data
+            setParticipants(firestoreEvent.attendees.map((attendee: {name?: string, email?: string, phoneNumber?: string}) => ({
+              id: attendee.email || attendee.name || '',
+              name: attendee.name || attendee.email || '',
+              email: attendee.email || '',
+              phoneNumber: attendee.phoneNumber || '',
+            })));
+          }
+        } catch (firestoreErr) {
+          console.error('Error fetching event from Firestore:', firestoreErr);
+          // Continue with local calendar data if Firestore fetch fails
         }
       } catch (eventErr) {
         console.error('Error loading event:', eventErr);
@@ -131,14 +203,74 @@ export default function EventScreen() {
       setContacts([
         {
           id: '1',
-          name: 'Alice Johnson',
-          email: 'alice@example.com',
+          name: 'Geoff Brousseau',
+          email: 'imaweinerdog@gmail.com',
+          phoneNumber: '818-481-0612',
+          imageAvailable: false
         },
         {
           id: '2',
-          name: 'Bob Smith',
-          email: 'bob@example.com',
+          name: 'John Doe',
+          email: 'john.doe@example.com',
+          phoneNumber: '555-123-4567',
+          imageAvailable: false
         },
+        {
+          id: '3',
+          name: 'Jane Smith',
+          email: 'jane.smith@example.com',
+          phoneNumber: '555-987-6543',
+          imageAvailable: false
+        },
+        {
+          id: '4',
+          name: 'Mike Johnson',
+          email: 'mike.johnson@example.com',
+          phoneNumber: '555-456-7890',
+          imageAvailable: false
+        },
+        {
+          id: '5',
+          name: 'Sarah Williams',
+          email: 'sarah.williams@example.com',
+          phoneNumber: '555-789-0123',
+          imageAvailable: false
+        },
+        {
+          id: '6',
+          name: 'David Brown',
+          email: 'david.brown@example.com',
+          phoneNumber: '555-234-5678',
+          imageAvailable: false
+        },
+        {
+          id: '7',
+          name: 'Emily Davis',
+          email: 'emily.davis@example.com',
+          phoneNumber: '555-678-9012',
+          imageAvailable: false
+        },
+        {
+          id: '8',
+          name: 'Robert Wilson',
+          email: 'robert.wilson@example.com',
+          phoneNumber: '555-345-6789',
+          imageAvailable: false
+        },
+        {
+          id: '9',
+          name: 'Lisa Anderson',
+          email: 'lisa.anderson@example.com',
+          phoneNumber: '555-890-1234',
+          imageAvailable: false
+        },
+        {
+          id: '10',
+          name: 'James Taylor',
+          email: 'james.taylor@example.com',
+          phoneNumber: '555-567-8901',
+          imageAvailable: false
+        }
       ]);
       return;
     }
@@ -151,13 +283,19 @@ export default function EventScreen() {
       }
 
       const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.Emails, Contacts.Fields.Image],
+        fields: [Contacts.Fields.Emails, Contacts.Fields.PhoneNumbers, Contacts.Fields.Image],
       });
 
-      const formattedContacts = data.map(contact => ({
+      // Filter contacts to only include those with a phone number
+      const contactsWithPhone = data.filter(contact => 
+        contact.phoneNumbers && contact.phoneNumbers.length > 0
+      );
+
+      const formattedContacts = contactsWithPhone.map(contact => ({
         id: contact.id || `contact-${Math.random().toString(36).substring(2, 9)}`,
         name: contact.name || 'No Name',
         email: contact.emails?.[0]?.email,
+        phoneNumber: contact.phoneNumbers?.[0]?.number,
         imageAvailable: contact.imageAvailable,
         image: contact.image?.uri ? { uri: contact.image.uri } : undefined,
       }));
@@ -205,7 +343,13 @@ export default function EventScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
-                await Calendar.deleteEventAsync(id);
+                // Use EventService to delete the event (this will also remove invitations)
+                await deleteEvent(id);
+                
+                // Reset form state
+                resetFormState();
+                
+                // Refresh the calendar view
                 await refreshEvents(new Date());
                 router.back();
               } catch (err) {
@@ -241,6 +385,7 @@ export default function EventScreen() {
         attendees: participants.map(participant => ({
           name: participant.name,
           email: participant.email,
+          phoneNumber: participant.phoneNumber,
           status: 'pending',
         })),
       };
@@ -257,14 +402,23 @@ export default function EventScreen() {
         }
       }
 
+      // Reset form state
+      resetFormState();
+      
       await refreshEvents(new Date());
       
-      if (Platform.OS !== 'web' && typeof sendEventNotification === 'function') {
-        await sendEventNotification(participants, {
-          title: event.title,
-          startDate: event.startDate,
-          location: event.location,
-        });
+      // Send notifications to participants if available
+      if (Platform.OS !== 'web' && participants.length > 0) {
+        try {
+          await sendEventNotification(participants, {
+            title: event.title,
+            startDate: event.startDate,
+            location: event.location,
+          });
+        } catch (notificationError) {
+          console.error('Error sending notifications:', notificationError);
+          // Continue with navigation even if notifications fail
+        }
       }
 
       router.back();
@@ -325,67 +479,67 @@ export default function EventScreen() {
           />
         </View>
 
-        <View style={styles.row}>
-          <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-            <Text style={[styles.label, isDark && styles.textLight]}>Start</Text>
-            <View style={[styles.dateTimeContainer, isDark && styles.dateTimeContainerDark]}>
-              <DateTimePicker
-                value={event.startDate}
-                onChange={(date) => {
-                  setEvent(prev => ({
-                    ...prev,
-                    startDate: date,
-                    endDate: date > prev.endDate ? date : prev.endDate,
-                  }));
-                }}
-                mode="date"
-                isDark={isDark}
-              />
-              <View style={[styles.divider, isDark && styles.dividerDark]} />
-              <DateTimePicker
-                value={event.startDate}
-                onChange={(date) => {
-                  setEvent(prev => ({
-                    ...prev,
-                    startDate: date,
-                    endDate: date > prev.endDate ? date : prev.endDate,
-                  }));
-                }}
-                mode="time"
-                isDark={isDark}
-              />
-            </View>
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, isDark && styles.textLight]}>Start</Text>
+          <View style={[styles.dateTimeContainer, isDark && styles.dateTimeContainerDark]}>
+            <DateTimePicker
+              value={event.startDate}
+              onChange={(date) => {
+                setEvent(prev => ({
+                  ...prev,
+                  startDate: date,
+                  endDate: date > prev.endDate ? date : prev.endDate,
+                }));
+              }}
+              mode="date"
+              isDark={isDark}
+            />
           </View>
+          <View style={[styles.timeContainer, isDark && styles.timeContainerDark]}>
+            <DateTimePicker
+              value={event.startDate}
+              onChange={(date) => {
+                setEvent(prev => ({
+                  ...prev,
+                  startDate: date,
+                  endDate: date > prev.endDate ? date : prev.endDate,
+                }));
+              }}
+              mode="time"
+              isDark={isDark}
+            />
+          </View>
+        </View>
 
-          <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-            <Text style={[styles.label, isDark && styles.textLight]}>End</Text>
-            <View style={[styles.dateTimeContainer, isDark && styles.dateTimeContainerDark]}>
-              <DateTimePicker
-                value={event.endDate}
-                onChange={(date) => {
-                  setEvent(prev => ({
-                    ...prev,
-                    endDate: date,
-                    startDate: date < prev.startDate ? date : prev.startDate,
-                  }));
-                }}
-                mode="date"
-                isDark={isDark}
-              />
-              <View style={[styles.divider, isDark && styles.dividerDark]} />
-              <DateTimePicker
-                value={event.endDate}
-                onChange={(date) => {
-                  setEvent(prev => ({
-                    ...prev,
-                    endDate: date,
-                    startDate: date < prev.startDate ? date : prev.startDate,
-                  }));
-                }}
-                mode="time"
-                isDark={isDark}
-              />
-            </View>
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, isDark && styles.textLight]}>End</Text>
+          <View style={[styles.dateTimeContainer, isDark && styles.dateTimeContainerDark]}>
+            <DateTimePicker
+              value={event.endDate}
+              onChange={(date) => {
+                setEvent(prev => ({
+                  ...prev,
+                  endDate: date,
+                  startDate: date < prev.startDate ? date : prev.startDate,
+                }));
+              }}
+              mode="date"
+              isDark={isDark}
+            />
+          </View>
+          <View style={[styles.timeContainer, isDark && styles.timeContainerDark]}>
+            <DateTimePicker
+              value={event.endDate}
+              onChange={(date) => {
+                setEvent(prev => ({
+                  ...prev,
+                  endDate: date,
+                  startDate: date < prev.startDate ? date : prev.startDate,
+                }));
+              }}
+              mode="time"
+              isDark={isDark}
+            />
           </View>
         </View>
 
@@ -467,7 +621,11 @@ export default function EventScreen() {
               )}
             </View>
 
-            <ScrollView style={styles.contactsList}>
+            <ScrollView 
+              style={styles.contactsList}
+              contentContainerStyle={styles.contactsListContent}
+              showsVerticalScrollIndicator={true}
+              bounces={true}>
               {filteredContacts.length > 0 ? (
                 filteredContacts.map((contact) => (
                   <Pressable
@@ -647,17 +805,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3.84,
     elevation: 2,
+    marginBottom: 12,
   },
   dateTimeContainerDark: {
     backgroundColor: '#1e293b',
     borderColor: '#334155',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
+  timeContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 2,
   },
-  dividerDark: {
-    backgroundColor: '#334155',
+  timeContainerDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
   },
   addParticipantButton: {
     flexDirection: 'row',
@@ -801,7 +972,11 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   contactsList: {
+    maxHeight: 300,
+  },
+  contactsListContent: {
     padding: 12,
+    overflow: 'scroll',
   },
   contactItem: {
     flexDirection: 'row',
@@ -850,6 +1025,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 32,
     gap: 16,
+    width: '100%',
   },
   deleteButton: {
     flexDirection: 'row',
@@ -857,6 +1033,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     backgroundColor: '#fee2e2',
+    flex: 1,
   },
   deleteButtonDark: {
     backgroundColor: '#450a0a',
@@ -911,6 +1088,12 @@ const styles = StyleSheet.create({
   },
 });
 
-function sendEventNotification(participants: Participant[], arg1: { title: string; startDate: Date; location: string; }) {
-  throw new Error('Function not implemented.');
+function sendEventNotification(participants: Participant[], eventDetails: { title: string; startDate: Date; location: string; }) {
+  // This is a placeholder implementation
+  // In a real app, you would use a notification service like Firebase Cloud Messaging
+  console.log('Sending notifications to participants:', participants);
+  console.log('Event details:', eventDetails);
+  
+  // Return a resolved promise to indicate success
+  return Promise.resolve();
 }

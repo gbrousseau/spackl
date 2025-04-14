@@ -126,7 +126,7 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
               email: event.organizerEmail,
               name: event.organizerEmail.split('@')[0]
             } : undefined,
-            attendees: event.attendees?.map(attendee => ({
+            attendees: (event as any).attendees?.map((attendee: any) => ({
               email: attendee.email,
               name: attendee.name,
               status: attendee.status,
@@ -148,7 +148,7 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
         JSON.stringify(transformedEvents)
       );
 
-      setEvents(transformedEvents);
+      setEvents(transformedEvents as unknown as CalendarEvent[]);
     } catch (err) {
       console.error('Error loading calendar events:', err);
       

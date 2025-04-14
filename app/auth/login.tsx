@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, Image, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, Image, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
@@ -99,8 +99,8 @@ export default function LoginScreen() {
   const handleGoogleLogin = async () => {
     try {
       const result = await promptAsync();
-      if (result?.type === 'success') {
-        await signIn('google-token');
+      if (result?.type === 'success' && result.authentication) {
+        await signIn('google-token', result.authentication.accessToken);
       }
     } catch (err) {
       setError('Google sign in failed. Please try again.');
@@ -139,114 +139,120 @@ export default function LoginScreen() {
         </View>
       </View>
 
-      <View style={[styles.form, isDark && styles.formDark]}>
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            {loginAttempts >= 3 && (
-              <View style={styles.errorActions}>
-                <Pressable onPress={handleForgotPassword} style={styles.errorActionButton}>
-                  <Text style={styles.errorActionButtonText}>Reset Password</Text>
-                </Pressable>
-                <Pressable onPress={handleContactSupport} style={styles.errorActionButton}>
-                  <Text style={styles.errorActionButtonText}>Contact Support</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-        )}
-
-        <View style={styles.inputGroup}>
-          <Text style={[styles.label, isDark && styles.textLight]}>Email</Text>
-          <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
-            <Mail size={20} color={isDark ? '#94a3b8' : '#64748b'} />
-            <TextInput
-              style={[styles.input, isDark && styles.textLight]}
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                setError(null);
-              }}
-              placeholder="Enter your email"
-              placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              editable={!loading}
-            />
-          </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={[styles.label, isDark && styles.textLight]}>Password</Text>
-          <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
-            <Lock size={20} color={isDark ? '#94a3b8' : '#64748b'} />
-            <TextInput
-              style={[styles.input, isDark && styles.textLight]}
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                setError(null);
-              }}
-              placeholder="Enter your password"
-              placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
-              secureTextEntry={!showPassword}
-              autoComplete="password"
-              editable={!loading}
-            />
-            <Pressable onPress={() => setShowPassword(!showPassword)}>
-              {showPassword ? (
-                <EyeOff size={20} color={isDark ? '#94a3b8' : '#64748b'} />
-              ) : (
-                <Eye size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+      <ScrollView 
+        style={[styles.scrollView, isDark && styles.scrollViewDark]}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.form, isDark && styles.formDark]}>
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              {loginAttempts >= 3 && (
+                <View style={styles.errorActions}>
+                  <Pressable onPress={handleForgotPassword} style={styles.errorActionButton}>
+                    <Text style={styles.errorActionButtonText}>Reset Password</Text>
+                  </Pressable>
+                  <Pressable onPress={handleContactSupport} style={styles.errorActionButton}>
+                    <Text style={styles.errorActionButtonText}>Contact Support</Text>
+                  </Pressable>
+                </View>
               )}
+            </View>
+          )}
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, isDark && styles.textLight]}>Email</Text>
+            <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
+              <Mail size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+              <TextInput
+                style={[styles.input, isDark && styles.textLight]}
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setError(null);
+                }}
+                placeholder="Enter your email"
+                placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                editable={!loading}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, isDark && styles.textLight]}>Password</Text>
+            <View style={[styles.inputContainer, isDark && styles.inputContainerDark]}>
+              <Lock size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+              <TextInput
+                style={[styles.input, isDark && styles.textLight]}
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setError(null);
+                }}
+                placeholder="Enter your password"
+                placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+                editable={!loading}
+              />
+              <Pressable onPress={() => setShowPassword(!showPassword)}>
+                {showPassword ? (
+                  <EyeOff size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+                ) : (
+                  <Eye size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+                )}
+              </Pressable>
+            </View>
+          </View>
+
+          <Pressable
+            style={[styles.forgotPassword]}
+            onPress={handleForgotPassword}>
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleEmailLogin}
+            disabled={loading}>
+            <Text style={styles.buttonText}>
+              {loading ? 'Signing in...' : 'Sign In'}
+            </Text>
+          </Pressable>
+
+          <View style={styles.divider}>
+            <View style={[styles.dividerLine, isDark && styles.dividerLineDark]} />
+            <Text style={[styles.dividerText, isDark && styles.textLight]}>or</Text>
+            <View style={[styles.dividerLine, isDark && styles.dividerLineDark]} />
+          </View>
+
+          <Pressable
+            style={[styles.googleButton, isDark && styles.googleButtonDark]}
+            onPress={handleGoogleLogin}
+            disabled={!_}>
+            <Image
+              source={{ uri: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg' }}
+              style={styles.googleIcon}
+            />
+            <Text style={[styles.googleButtonText, isDark && styles.textLight]}>
+              Continue with Google
+            </Text>
+          </Pressable>
+
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, isDark && styles.textLight]}>
+              Don't have an account?
+            </Text>
+            <Pressable onPress={() => router.push('/auth/register')}>
+              <Text style={styles.footerLink}>Sign Up</Text>
             </Pressable>
           </View>
         </View>
-
-        <Pressable
-          style={[styles.forgotPassword]}
-          onPress={handleForgotPassword}>
-          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleEmailLogin}
-          disabled={loading}>
-          <Text style={styles.buttonText}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </Text>
-        </Pressable>
-
-        <View style={styles.divider}>
-          <View style={[styles.dividerLine, isDark && styles.dividerLineDark]} />
-          <Text style={[styles.dividerText, isDark && styles.textLight]}>or</Text>
-          <View style={[styles.dividerLine, isDark && styles.dividerLineDark]} />
-        </View>
-
-        <Pressable
-          style={[styles.googleButton, isDark && styles.googleButtonDark]}
-          onPress={handleGoogleLogin}
-          disabled={!_}>
-          <Image
-            source={{ uri: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg' }}
-            style={styles.googleIcon}
-          />
-          <Text style={[styles.googleButtonText, isDark && styles.textLight]}>
-            Continue with Google
-          </Text>
-        </Pressable>
-
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, isDark && styles.textLight]}>
-            Don't have an account?
-          </Text>
-          <Pressable onPress={() => router.push('/auth/register')}>
-            <Text style={styles.footerLink}>Sign Up</Text>
-          </Pressable>
-        </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -290,6 +296,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 16,
     color: '#e2e8f0',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewDark: {
+    backgroundColor: '#1e293b',
+  },
+  scrollViewContent: {
+    flexGrow: 1,
   },
   form: {
     flex: 1,

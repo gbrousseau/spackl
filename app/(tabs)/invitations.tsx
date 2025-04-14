@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
-import { Calendar, CheckCircle, XCircle, Clock, ChevronRight, Users } from 'lucide-react-native';
+import { Calendar, CheckCircle, XCircle, Clock, ChevronRight, Users, MapPin } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
-import { collection, query, where, getDocs, updateDoc, doc, getDoc, DocumentData, QueryDocumentSnapshot, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { updateDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { FIREBASE_FIRESTORE } from '@/firebaseConfig';
 import * as ExpoCalendar from 'expo-calendar';
 
@@ -48,6 +48,36 @@ interface GroupedInvitations {
   not_interested: EventInvitation[];
 }
 
+function mapJsonToEventInvitation(json: any, id: string): EventInvitation {
+  return {
+    id,
+    eventId: json.eventId,
+    title: json.eventTitle || '',
+    startDate: new Date(
+      json.startDate && typeof json.startDate.seconds === 'number'
+        ? json.startDate.seconds * 1000
+        : Date.now()
+    ),
+    endDate: new Date(
+      json.endDate && typeof json.endDate.seconds === 'number'
+        ? json.endDate.seconds * 1000
+        : Date.now()
+    ),
+    location: json.location || '',
+    organizer: {
+      name: json.organize?.name || 'Unknown',
+      email: json.organize?.email || '',
+    },
+    status: json.status as InvitationStatus,
+    createdAt: new Date(
+      json.createdAt && typeof json.createdAt.seconds === 'number'
+        ? json.createdAt.seconds * 1000
+        : Date.now()
+    ),
+  };
+}
+
+// Main component for the Invitations screen
 export default function InvitationsScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
@@ -68,7 +98,7 @@ export default function InvitationsScreen() {
   }, [user]);
 
   const loadInvitations = async () => {
-    if (!user?.email) {
+    if (!user) {
       setLoading(false);
       return;
     }
@@ -77,9 +107,36 @@ export default function InvitationsScreen() {
       setLoading(true);
       setError(null);
 
-      // Get the user's invitations document
-      const userInvitationsRef = doc(FIREBASE_FIRESTORE, 'invitations', user.email);
-      const userInvitationsDoc = await getDoc(userInvitationsRef);
+      // Try to get invitations in priority order
+      let userInvitationsDoc = null;
+      let documentId = null;
+
+      // First try: user's phone number
+      if (user.phoneNumber) {
+        const phoneRef = doc(FIREBASE_FIRESTORE, 'users', user.phoneNumber, 'invitations', 'all');
+        userInvitationsDoc = await getDoc(phoneRef);
+        if (userInvitationsDoc.exists()) {
+          documentId = user.phoneNumber;
+        }
+      }
+
+      // Second try: user's email
+      if (!userInvitationsDoc?.exists() && user.email) {
+        const emailRef = doc(FIREBASE_FIRESTORE, 'users', user.email, 'invitations', 'all');
+        userInvitationsDoc = await getDoc(emailRef);
+        if (userInvitationsDoc.exists()) {
+          documentId = user.email;
+        }
+      }
+
+      // Third try: fallback phone number
+      if (!userInvitationsDoc?.exists()) {
+        const fallbackRef = doc(FIREBASE_FIRESTORE, 'users', '8184810612', 'invitations', 'all');
+        userInvitationsDoc = await getDoc(fallbackRef);
+        if (userInvitationsDoc.exists()) {
+          documentId = '8184810612';
+        }
+      }
 
       const loadedInvitations: GroupedInvitations = {
         pending: [],
@@ -88,13 +145,14 @@ export default function InvitationsScreen() {
         not_interested: [],
       };
 
-      if (userInvitationsDoc.exists()) {
-        const userData = userInvitationsDoc.data() as UserInvitations;
-        
-        // Process each event invitation
-        for (const eventInvitation of userData.events) {
-          // Add to the appropriate category
-          loadedInvitations[eventInvitation.status].push(eventInvitation);
+      if (userInvitationsDoc?.exists()) {
+        const rawData = userInvitationsDoc.data();
+        const invitations = rawData.invitations || [];
+
+        // Process each invitation
+        for (const invitation of invitations) {
+          const mappedInvitation = mapJsonToEventInvitation(invitation, invitation.id);
+          loadedInvitations[mappedInvitation.status].push(mappedInvitation);
         }
       }
 
@@ -200,7 +258,6 @@ export default function InvitationsScreen() {
         return;
       }
 
-      // Get the default calendar
       const calendars = await ExpoCalendar.getCalendarsAsync(ExpoCalendar.EntityTypes.EVENT);
       const defaultCalendar = calendars.find(cal => cal.isPrimary);
       
@@ -209,14 +266,12 @@ export default function InvitationsScreen() {
         return;
       }
 
-      // Add the event to the calendar
       await ExpoCalendar.createEventAsync(defaultCalendar.id, {
         title: invitation.title,
         startDate: invitation.startDate,
         endDate: invitation.endDate,
         location: invitation.location,
-        notes: `Invited by: ${invitation.organizer.name} (${invitation.organizer.email})`,
-        alarms: [{ relativeOffset: -60 }], // 1 hour before
+        notes: `Invited by: ${invitation.organizer.name}`,
       });
 
       Alert.alert('Success', 'Event added to your calendar');
@@ -236,6 +291,7 @@ export default function InvitationsScreen() {
   const renderInvitationCard = (invitation: EventInvitation) => (
     <Pressable
       key={invitation.id}
+      testID="invitation-card"
       style={[styles.invitationCard, isDark && styles.invitationCardDark]}
       onPress={() => viewInvitationDetails(invitation)}
     >
@@ -279,7 +335,7 @@ export default function InvitationsScreen() {
 
       <View style={styles.invitationFooter}>
         <Text style={[styles.organizerText, isDark && styles.textMuted]}>
-          From: {invitation.organizer.name}
+          From: {invitation.organizer.name || 'Organizer'}
         </Text>
         <ChevronRight size={20} color={isDark ? '#94a3b8' : '#64748b'} />
       </View>
@@ -368,11 +424,20 @@ export default function InvitationsScreen() {
     }
   };
 
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <Calendar testID="empty-state-icon" size={48} color={isDark ? '#94a3b8' : '#64748b'} />
+      <Text style={[styles.emptyStateText, isDark && styles.textMuted]}>
+        You don't have any event invitations yet
+      </Text>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#0891b2" />
+          <ActivityIndicator testID="loading-indicator" size="large" color="#0891b2" />
           <Text style={[styles.loadingText, isDark && styles.textLight]}>Loading invitations...</Text>
         </View>
       </View>
@@ -399,13 +464,13 @@ export default function InvitationsScreen() {
       )}
 
       <ScrollView style={styles.content}>
-        {totalInvitations === 0 ? (
-          <View style={styles.emptyState}>
-            <Calendar size={48} color={isDark ? '#94a3b8' : '#64748b'} />
-            <Text style={[styles.emptyStateText, isDark && styles.textMuted]}>
-              You don't have any event invitations yet
-            </Text>
+        {loading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator testID="loading-indicator" size="large" color="#0891b2" />
+            <Text style={[styles.loadingText, isDark && styles.textLight]}>Loading invitations...</Text>
           </View>
+        ) : totalInvitations === 0 ? (
+          renderEmptyState()
         ) : (
           <>
             {renderInvitationSection('Unread', invitations.pending, 'pending')}
