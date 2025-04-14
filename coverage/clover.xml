@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1744662444578" clover="3.2.0">
-  <project timestamp="1744662444579" name="All files">
+<coverage generated="1744664417269" clover="3.2.0">
+  <project timestamp="1744664417269" name="All files">
     <metrics statements="2445" coveredstatements="29" conditionals="2409" coveredconditionals="4" methods="542" coveredmethods="4" elements="5396" coveredelements="37" complexity="0" loc="2445" ncloc="2445" packages="13" files="48" classes="48"/>
     <package name="spackl - Copy">
       <metrics statements="10" coveredstatements="5" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
@@ -9,11 +9,11 @@
       </file>
       <file name="firebaseConfig.ts" path="C:\Code\spackl - Copy\firebaseConfig.ts">
         <metrics statements="5" coveredstatements="5" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
-        <line num="7" count="1" type="stmt"/>
-        <line num="18" count="1" type="stmt"/>
-        <line num="20" count="1" type="stmt"/>
-        <line num="23" count="1" type="stmt"/>
-        <line num="24" count="1" type="stmt"/>
+        <line num="7" count="2" type="stmt"/>
+        <line num="18" count="2" type="stmt"/>
+        <line num="20" count="2" type="stmt"/>
+        <line num="23" count="2" type="stmt"/>
+        <line num="24" count="2" type="stmt"/>
       </file>
       <file name="metro.config.js" path="C:\Code\spackl - Copy\metro.config.js">
         <metrics statements="5" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
