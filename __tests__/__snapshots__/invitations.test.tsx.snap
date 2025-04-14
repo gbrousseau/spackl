@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`InvitationsScreen expo-router mock should use the mocked Redirect 1`] = `"Redirected to /test"`;

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GroupService, Group as FirestoreGroup } from '@/services/GroupService';
+import { useAuth } from '@/context/AuthContext';
 
 export interface Group {
   id: string;
@@ -37,69 +38,96 @@ const GroupContext = createContext<GroupContextType>({
 
 export function GroupProvider({ children }: { children: React.ReactNode }) {
   const [groups, setGroups] = useState<Group[]>([]);
+  const { user } = useAuth();
+  const groupService = user ? new GroupService(user.uid) : null;
 
   useEffect(() => {
-    loadGroups();
-  }, []);
+    if (user) {
+      loadGroups();
+    }
+  }, [user]);
 
   const loadGroups = async () => {
+    if (!groupService) return;
+    
     try {
-      const storedGroups = await AsyncStorage.getItem('contact_groups');
-      if (storedGroups) {
-        setGroups(JSON.parse(storedGroups));
-      }
+      const firestoreGroups = await groupService.getGroups();
+      const mappedGroups: Group[] = firestoreGroups.map(group => ({
+        id: group.id,
+        name: group.name,
+        members: [], // We'll load members separately
+        createdAt: group.createdAt.toISOString(),
+      }));
+      setGroups(mappedGroups);
     } catch (error) {
       console.error('Error loading groups:', error);
     }
   };
 
-  const saveGroups = async (updatedGroups: Group[]) => {
+  const addGroup = async (name: string) => {
+    if (!groupService) return;
+    
     try {
-      await AsyncStorage.setItem('contact_groups', JSON.stringify(updatedGroups));
-      setGroups(updatedGroups);
+      const newGroup = await groupService.createGroup(name);
+      const mappedGroup: Group = {
+        id: newGroup.id,
+        name: newGroup.name,
+        members: [],
+        createdAt: newGroup.createdAt.toISOString(),
+      };
+      setGroups(prev => [...prev, mappedGroup]);
     } catch (error) {
-      console.error('Error saving groups:', error);
+      console.error('Error adding group:', error);
     }
   };
 
-  const addGroup = async (name: string) => {
-    const newGroup: Group = {
-      id: Date.now().toString(),
-      name,
-      members: [],
-      createdAt: new Date().toISOString(),
-    };
-    await saveGroups([...groups, newGroup]);
-  };
-
   const removeGroup = async (id: string) => {
-    await saveGroups(groups.filter(group => group.id !== id));
+    if (!groupService) return;
+    
+    try {
+      await groupService.deleteGroup(id);
+      setGroups(prev => prev.filter(group => group.id !== id));
+    } catch (error) {
+      console.error('Error removing group:', error);
+    }
   };
 
   const addMemberToGroup = async (groupId: string, contact: Contact) => {
-    const updatedGroups = groups.map(group => {
-      if (group.id === groupId && !group.members.find(member => member.id === contact.id)) {
-        return {
-          ...group,
-          members: [...group.members, contact],
-        };
-      }
-      return group;
-    });
-    await saveGroups(updatedGroups);
+    if (!groupService) return;
+    
+    try {
+      await groupService.addContactsToGroup(groupId, [contact]);
+      setGroups(prev => prev.map(group => {
+        if (group.id === groupId && !group.members.find(member => member.id === contact.id)) {
+          return {
+            ...group,
+            members: [...group.members, contact],
+          };
+        }
+        return group;
+      }));
+    } catch (error) {
+      console.error('Error adding member to group:', error);
+    }
   };
 
   const removeMemberFromGroup = async (groupId: string, contactId: string) => {
-    const updatedGroups = groups.map(group => {
-      if (group.id === groupId) {
-        return {
-          ...group,
-          members: group.members.filter(member => member.id !== contactId),
-        };
-      }
-      return group;
-    });
-    await saveGroups(updatedGroups);
+    if (!groupService) return;
+    
+    try {
+      await groupService.removeContactsFromGroup(groupId, [contactId]);
+      setGroups(prev => prev.map(group => {
+        if (group.id === groupId) {
+          return {
+            ...group,
+            members: group.members.filter(member => member.id !== contactId),
+          };
+        }
+        return group;
+      }));
+    } catch (error) {
+      console.error('Error removing member from group:', error);
+    }
   };
 
   const getContactGroups = (contactId: string) => {

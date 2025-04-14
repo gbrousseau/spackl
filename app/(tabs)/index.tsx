@@ -38,7 +38,8 @@ export default function CalendarScreen() {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      router.push('/calendar/event?forceNew=true');
+      const selectedDateParam = selectedDate.toISOString();
+      router.push(`/calendar/event?forceNew=true&selectedDate=${selectedDateParam}`);
     });
   };
 
@@ -368,7 +369,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#0e7490',
   },
   selectedDayText: {
-    color: '#ffffff',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+    color: '#64748b',
   },
   todayText: {
     fontFamily: 'Inter_600SemiBold',
@@ -543,12 +546,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 20,
     color: '#0f172a',
-  },
-  selectedDay: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 16,
-    color: '#64748b',
-    marginTop: 4,
   },
   errorIcon: {
     marginBottom: 16,

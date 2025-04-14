@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`expo-router manual mock should use the mocked Redirect 1`] = `
+<View>
+  <Text>
+    Redirected to /test
+  </Text>
+</View>
+`;

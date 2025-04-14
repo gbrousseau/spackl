@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, Pressable, Platform, Modal, ActivityIndicator } from 'react-native';
 import { Bell, Share, Lock, CircleHelp as HelpCircle, LogOut, Moon, Users, Clock, Calendar, ChevronRight, X } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
@@ -6,23 +6,14 @@ import { useNotifications } from '@/context/NotificationContext';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useContacts } from '@/context/ContactsContext';
 import { useAuth } from '@/context/AuthContext';
-
-type SharingPermission = 'view' | 'edit' | 'full';
-type SharingDuration = 'permanent' | '1week' | '1month' | '3months';
-
-interface SharedContact {
-  id: string;
-  permission: SharingPermission;
-  duration: SharingDuration;
-  sharedAt: Date;
-}
+import { SharedContactsService, SharedContact, SharingPermission, SharingDuration } from '@/services/SharedContactsService';
 
 export default function SettingsScreen() {
   const { isDark, toggleTheme } = useTheme();
   const { isEnabled: notificationsEnabled, toggleNotifications } = useNotifications();
   const { saveSettings, getSettings, loading } = useUserSettings();
   const { contacts } = useContacts();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [eventReminders, setEventReminders] = useState(false);
@@ -33,7 +24,21 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     loadSettings();
-  }, []);
+    if (user?.uid) {
+      loadSharedContacts();
+    }
+  }, [user?.uid]);
+
+  const loadSharedContacts = async () => {
+    try {
+      const sharedContactsService = new SharedContactsService(user!.uid);
+      const shared = await sharedContactsService.getSharedContacts();
+      setSharedContacts(shared);
+    } catch (err) {
+      console.error('Error loading shared contacts:', err);
+      setError('Failed to load shared contacts');
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -100,21 +105,23 @@ export default function SettingsScreen() {
 
   const handleShareWithContact = async (
     contactId: string,
-    permission: SharingPermission,
-    duration: SharingDuration
+    permission: SharingPermission = 'view',
+    duration: SharingDuration = 'permanent'
   ) => {
-    const newSharedContact: SharedContact = {
-      id: contactId,
-      permission,
-      duration,
-      sharedAt: new Date(),
-    };
+    if (!user?.uid) return;
 
-    setSharedContacts(prev => [...prev, newSharedContact]);
-    setShowContactPicker(false);
-
-    // Save to backend
     try {
+      const sharedContactsService = new SharedContactsService(user.uid);
+      const newSharedContact = await sharedContactsService.shareContact(
+        contactId,
+        permission,
+        duration
+      );
+
+      setSharedContacts(prev => [...prev, newSharedContact]);
+      setShowContactPicker(false);
+
+      // Save to backend
       await saveSettings({
         privacy: {
           shareCalendar: true,
@@ -125,6 +132,19 @@ export default function SettingsScreen() {
     } catch (err) {
       console.error('Error saving shared contacts:', err);
       setError('Failed to share calendar');
+    }
+  };
+
+  const handleRemoveSharedContact = async (sharedContactId: string) => {
+    if (!user?.uid) return;
+
+    try {
+      const sharedContactsService = new SharedContactsService(user.uid);
+      await sharedContactsService.removeSharedContact(sharedContactId);
+      setSharedContacts(prev => prev.filter(sc => sc.id !== sharedContactId));
+    } catch (err) {
+      console.error('Error removing shared contact:', err);
+      setError('Failed to remove shared contact');
     }
   };
 
@@ -237,7 +257,7 @@ export default function SettingsScreen() {
             </Pressable>
 
             {sharedContacts.map(shared => {
-              const contact = contacts.find(c => c.id === shared.id);
+              const contact = contacts.find(c => c.id === shared.contactId);
               if (!contact) return null;
 
               return (
@@ -253,9 +273,7 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                   <Pressable
-                    onPress={() => {
-                      setSharedContacts(prev => prev.filter(sc => sc.id !== shared.id));
-                    }}>
+                    onPress={() => handleRemoveSharedContact(shared.id)}>
                     <X size={20} color="#ef4444" />
                   </Pressable>
                 </View>
@@ -310,7 +328,7 @@ export default function SettingsScreen() {
 
             <ScrollView style={styles.contactsList}>
               {contacts
-                .filter(contact => !sharedContacts.some(sc => sc.id === contact.id))
+                .filter(contact => !sharedContacts.some(sc => sc.contactId === contact.id))
                 .map(contact => (
                   <Pressable
                     key={contact.id}

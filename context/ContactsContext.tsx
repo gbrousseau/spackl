@@ -3,15 +3,20 @@ import * as Contacts from 'expo-contacts';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export interface Contact {
+type Contact = {
   id: string;
   name: string;
   email?: string;
-  phoneNumbers?: { number: string }[];
-  imageAvailable?: boolean;
-  image?: { uri: string };
+  phoneNumbers?: Array<{
+    number: string;
+    label: string;
+  }>;
   shared?: boolean;
-}
+  imageAvailable?: boolean;
+  image?: {
+    uri: string;
+  };
+};
 
 interface ContactsContextType {
   contacts: Contact[];
@@ -31,6 +36,89 @@ const ContactsContext = createContext<ContactsContextType>({
   clearError: () => {},
 });
 
+const mockContacts: Contact[] = [
+  {
+    id: '1',
+    name: 'Geoff Brousseau',
+    email: 'imaweinerdog@gmail.com',
+    phoneNumbers: [{ number: '818-481-0612', label: 'mobile' }],
+    shared: false,
+    imageAvailable: false
+  },
+  {
+    id: '2',
+    name: 'John Doe',
+    email: 'john.doe@example.com',
+    phoneNumbers: [{ number: '555-123-4567', label: 'mobile' }],
+    shared: false,
+    imageAvailable: false
+  },
+  {
+    id: '3',
+    name: 'Jane Smith',
+    email: 'jane.smith@example.com',
+    phoneNumbers: [{ number: '555-987-6543', label: 'mobile' }],
+    shared: false,
+    imageAvailable: false
+  },
+  {
+    id: '4',
+    name: 'Mike Johnson',
+    email: 'mike.johnson@example.com',
+    phoneNumbers: [{ number: '555-456-7890', label: 'mobile' }],
+    shared: false,
+    imageAvailable: false
+  },
+  {
+    id: '5',
+    name: 'Sarah Williams',
+    email: 'sarah.williams@example.com',
+    phoneNumbers: [{ number: '555-789-0123', label: 'mobile' }],
+    shared: false,
+    imageAvailable: false
+  },
+  {
+    id: '6',
+    name: 'David Brown',
+    email: 'david.brown@example.com',
+    phoneNumbers: [{ number: '555-234-5678', label: 'mobile' }],
+    shared: false,
+    imageAvailable: false
+  },
+  {
+    id: '7',
+    name: 'Emily Davis',
+    email: 'emily.davis@example.com',
+    phoneNumbers: [{ number: '555-678-9012', label: 'mobile' }],
+    shared: false,
+    imageAvailable: false
+  },
+  {
+    id: '8',
+    name: 'Robert Wilson',
+    email: 'robert.wilson@example.com',
+    phoneNumbers: [{ number: '555-345-6789', label: 'mobile' }],
+    shared: false,
+    imageAvailable: false
+  },
+  {
+    id: '9',
+    name: 'Lisa Anderson',
+    email: 'lisa.anderson@example.com',
+    phoneNumbers: [{ number: '555-890-1234', label: 'mobile' }],
+    shared: false,
+    imageAvailable: false
+  },
+  {
+    id: '10',
+    name: 'James Taylor',
+    email: 'james.taylor@example.com',
+    phoneNumbers: [{ number: '555-567-8901', label: 'mobile' }],
+    shared: false,
+    imageAvailable: false
+  }
+];
+
 export function ContactsProvider({ children }: { children: React.ReactNode }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,69 +130,41 @@ export function ContactsProvider({ children }: { children: React.ReactNode }) {
 
   const loadContacts = async () => {
     try {
-      if (Platform.OS === 'web') {
-        const mockContacts: Contact[] = [
-          {
-            id: '1',
-            name: 'Alice Johnson',
-            email: 'alice@example.com',
-            phoneNumbers: [{ number: '+1 234 567 8900' }],
-            image: { uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80' },
-            shared: false,
-          },
-          {
-            id: '2',
-            name: 'Bob Smith',
-            email: 'bob@example.com',
-            phoneNumbers: [{ number: '+1 234 567 8901' }],
-            image: { uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80' },
-            shared: false,
-          },
-        ];
-        setContacts(mockContacts);
-        setLoading(false);
-        return;
-      }
-
       const { status } = await Contacts.requestPermissionsAsync();
-      if (status !== 'granted') {
-        throw new Error('Permission to access contacts was denied');
+      if (status === 'granted') {
+        const { data } = await Contacts.getContactsAsync({
+          fields: [
+            Contacts.Fields.Name,
+            Contacts.Fields.PhoneNumbers,
+            Contacts.Fields.Emails,
+            Contacts.Fields.Image
+          ],
+        });
+
+        const formattedContacts: Contact[] = data
+          .filter(contact => contact.id) // Ensure id exists
+          .map(contact => ({
+            id: contact.id!,
+            name: contact.name || '',
+            email: contact.emails?.[0]?.email,
+            phoneNumbers: contact.phoneNumbers?.map(phone => ({
+              number: phone.number || '',
+              label: phone.label || 'mobile'
+            })),
+            shared: false,
+            imageAvailable: !!contact.image,
+            image: contact.image?.uri ? { uri: contact.image.uri } : undefined
+          }));
+
+        setContacts(formattedContacts);
+      } else {
+        // Use mock data if permissions not granted
+        setContacts(mockContacts);
       }
-
-      const { data } = await Contacts.getContactsAsync({
-        fields: [
-          Contacts.Fields.Emails,
-          Contacts.Fields.PhoneNumbers,
-          Contacts.Fields.Image,
-        ],
-      });
-
-      // Only include contacts with phone numbers
-      const contactsWithPhones = data
-        .filter(contact => contact.phoneNumbers && contact.phoneNumbers.length > 0)
-        .map(contact => ({
-          id: contact.id,
-          name: contact.name || 'No Name',
-          email: contact.emails?.[0]?.email,
-          phoneNumbers: contact.phoneNumbers,
-          imageAvailable: contact.imageAvailable,
-          image: contact.image,
-          shared: false,
-        }));
-
-      // Load shared status from storage
-      const sharedStatuses = await AsyncStorage.getItem('shared_contacts');
-      const sharedContactIds = sharedStatuses ? JSON.parse(sharedStatuses) : [];
-
-      const contactsWithSharedStatus = contactsWithPhones.map(contact => ({
-        ...contact,
-        shared: sharedContactIds.includes(contact.id),
-      }));
-
-      setContacts(contactsWithSharedStatus);
-    } catch (err) {
-      console.error('Error loading contacts:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load contacts');
+    } catch (error) {
+      console.error('Error loading contacts:', error);
+      // Use mock data if there's an error
+      setContacts(mockContacts);
     } finally {
       setLoading(false);
     }

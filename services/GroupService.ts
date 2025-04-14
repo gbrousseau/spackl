@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, getDocs, query, where } from 'firebase/firestore';
 import { FIREBASE_FIRESTORE } from '@/firebaseConfig';
 import { Contact } from '@/context/ContactsContext';
 
@@ -38,28 +38,44 @@ export class GroupService {
     this.userId = userId;
   }
 
+  private getGroupsCollection() {
+    return collection(FIREBASE_FIRESTORE, 'users', this.userId, this.GROUPS_COLLECTION);
+  }
+
   async createGroup(name: string, description?: string): Promise<Group> {
     try {
-      const groupRef = doc(collection(FIREBASE_FIRESTORE, this.GROUPS_COLLECTION));
+      const groupRef = doc(this.getGroupsCollection());
       const timestamp = new Date();
       
-      const group: Group = {
+      const groupData: {
+        id: string;
+        name: string;
+        description?: string;
+        contactIds: string[];
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+        createdBy: string;
+      } = {
         id: groupRef.id,
         name,
-        description,
         contactIds: [],
-        createdAt: timestamp,
-        updatedAt: timestamp,
+        createdAt: Timestamp.fromDate(timestamp),
+        updatedAt: Timestamp.fromDate(timestamp),
         createdBy: this.userId,
       };
 
-      await setDoc(groupRef, {
-        ...group,
-        createdAt: Timestamp.fromDate(timestamp),
-        updatedAt: Timestamp.fromDate(timestamp),
-      });
+      // Only add description if it's provided
+      if (description) {
+        groupData.description = description;
+      }
 
-      return group;
+      await setDoc(groupRef, groupData);
+
+      return {
+        ...groupData,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      } as Group;
     } catch (error) {
       console.error('Error creating group:', error);
       throw new Error('Failed to create group');
@@ -68,7 +84,7 @@ export class GroupService {
 
   async addContactsToGroup(groupId: string, contacts: Contact[]): Promise<void> {
     try {
-      const groupRef = doc(FIREBASE_FIRESTORE, this.GROUPS_COLLECTION, groupId);
+      const groupRef = doc(this.getGroupsCollection(), groupId);
       const groupDoc = await getDoc(groupRef);
 
       if (!groupDoc.exists()) {
@@ -94,7 +110,7 @@ export class GroupService {
 
   async removeContactsFromGroup(groupId: string, contactIds: string[]): Promise<void> {
     try {
-      const groupRef = doc(FIREBASE_FIRESTORE, this.GROUPS_COLLECTION, groupId);
+      const groupRef = doc(this.getGroupsCollection(), groupId);
       const groupDoc = await getDoc(groupRef);
 
       if (!groupDoc.exists()) {
@@ -119,7 +135,7 @@ export class GroupService {
 
   async deleteGroup(groupId: string): Promise<void> {
     try {
-      const groupRef = doc(FIREBASE_FIRESTORE, this.GROUPS_COLLECTION, groupId);
+      const groupRef = doc(this.getGroupsCollection(), groupId);
       
       // Get all events that include this group
       const events = await this.getEventsByGroup(groupId);
@@ -235,6 +251,30 @@ export class GroupService {
     } catch (error) {
       console.error('Error getting contacts from groups:', error);
       throw new Error('Failed to get group contacts');
+    }
+  }
+
+  async getGroups(): Promise<Group[]> {
+    try {
+      const groupsRef = this.getGroupsCollection();
+      const groupsQuery = query(groupsRef);
+      const groupsSnapshot = await getDocs(groupsQuery);
+      
+      return groupsSnapshot.docs.map(doc => {
+        const data = doc.data() as Omit<Group, 'id'> & {
+          createdAt: Timestamp;
+          updatedAt: Timestamp;
+        };
+        return {
+          ...data,
+          id: doc.id,
+          createdAt: data.createdAt.toDate(),
+          updatedAt: data.updatedAt.toDate(),
+        } as Group;
+      });
+    } catch (error) {
+      console.error('Error getting groups:', error);
+      throw new Error('Failed to get groups');
     }
   }
 }

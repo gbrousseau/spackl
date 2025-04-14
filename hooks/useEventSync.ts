@@ -54,9 +54,31 @@ export function useEventSync() {
     }
   }, [eventService]);
 
+  const deleteEvent = useCallback(async (eventId: string): Promise<boolean> => {
+    if (!eventService) {
+      setError('User not authenticated');
+      return false;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await eventService.deleteEvent(eventId);
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete event';
+      setError(errorMessage);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [eventService]);
+
   return {
     saveEvent,
     updateEvent,
+    deleteEvent,
     loading,
     error,
   };

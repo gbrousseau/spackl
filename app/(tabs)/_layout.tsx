@@ -38,7 +38,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="calendar/event"
+        name="create"
         options={{
           title: 'New Event',
           tabBarIcon: ({ color, size }) => <PlusCircle size={size} color={color} />,
