@@ -1,0 +1,53 @@
+{
+    "meta": {
+        "code": 200,
+        "message": "OK"
+    },
+    "data": {
+        "cid": "INST:17841407057324797",
+        "socialType": "INST",
+        "groupID": "17841407057324797",
+        "url": "https://instagram.com/pnwrealtyllc",
+        "name": "PNW Realty Buckley Real Estate",
+        "image": "https://6f2859a7-8667-4b05-9978-a8922e29bf1f.selstorage.ru/INST:17841407057324797?time=1744706164",
+        "description": "PNW Realty is a boutique brokerage serving the South Sound with nearly 20 years experience #realestate #pnwrealty",
+        "screenName": "pnwrealtyllc",
+        "usersCount": 1014,
+        "communityStatus": "COLLECTING",
+        "isClosed": false,
+        "verified": false,
+        "tags": [],
+        "suggestedTags": [],
+        "ratingTags": [],
+        "similar": [],
+        "membersCities": [],
+        "membersCountries": [],
+        "membersGendersAges": {
+            "data": [],
+            "summary": {
+                "m": 0,
+                "f": 0,
+                "avgAges": "-"
+            }
+        },
+        "country": "",
+        "countryCode": "",
+        "city": "",
+        "type": "",
+        "gender": "",
+        "age": "",
+        "categories": [],
+        "lastPosts": [],
+        "lastFromMentions": [],
+        "membersTypes": [],
+        "membersReachability": [],
+        "countries": [],
+        "cities": [],
+        "genders": [],
+        "ages": [],
+        "interests": [],
+        "brandSafety": {},
+        "pctFakeFollowers": 0,
+        "audienceSeverity": 0
+    }
+}

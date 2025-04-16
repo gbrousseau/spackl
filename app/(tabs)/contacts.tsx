@@ -3,10 +3,10 @@ import { View, Text, StyleSheet, FlatList, Pressable, Image, Platform, ActivityI
 import * as Contacts from 'expo-contacts';
 import * as SMS from 'expo-sms';
 import * as Device from 'expo-device';
-import { Share2, User, Search, X, Plus, Users as UsersIcon, CreditCard as Edit2, MessageCircle, RefreshCw, Clock } from 'lucide-react-native';
+import { Share2, User, Search, X, Plus, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useRouter } from 'expo-router';
-import { collection, doc, getDoc, setDoc, Timestamp, deleteDoc, query, where, getDocs, arrayUnion, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, deleteDoc, query, where, getDocs, arrayUnion, updateDoc } from 'firebase/firestore';
 import { FIREBASE_FIRESTORE } from '@/firebaseConfig';
 import { useAuth } from '@/context/AuthContext';
 import { SharedCalendars } from '@/components/SharedCalendars';
@@ -43,12 +43,19 @@ export default function ContactsScreen() {
   const { isDark } = useTheme();
   const router = useRouter();
   const { user, phoneInfo } = useAuth();
-  const [sharedCalendars, setSharedCalendars] = useState<Record<string, any>>({});
+  const [sharedCalendars, setSharedCalendars] = useState<Record<string, { status: string; sharedAt?: Date; lastUpdated?: Date }>>({});
   const [checkingSharedStatus, setCheckingSharedStatus] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [retryCounts, setRetryCounts] = useState<Record<string, number>>({});
   const [errorDetails, setErrorDetails] = useState<Record<string, string>>({});
-  const [sharingHistory, setSharingHistory] = useState<Record<string, any[]>>({});
+  type SharingHistoryEntry = {
+    action: 'shared' | 'updated';
+    timestamp?: Date;
+    status: string;
+    eventsCount: number;
+  };
+
+  const [sharingHistory, setSharingHistory] = useState<Record<string, SharingHistoryEntry[]>>({});
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [contactGroups, setContactGroups] = useState<Group[]>([]);
@@ -60,7 +67,14 @@ export default function ContactsScreen() {
     sharedByName: string;
     sharedAt: Date;
     lastUpdated: Date;
-    events: any[];
+    events: Array<{
+      id: string;
+      title: string;
+      startDate: Date;
+      endDate?: Date;
+      location?: string;
+      description?: string;
+    }>;
   }>>([]);
   const [loadingSharedWithMe, setLoadingSharedWithMe] = useState(false);
 
@@ -98,30 +112,36 @@ export default function ContactsScreen() {
             name: 'Geoff Brousseau',
             email: 'imaweinerdog@gmail.com',
             phoneNumbers: [{
+              id: '1',
               number: '818-481-0612',
               label: 'mobile'
             }],
             shared: false,
+            sharedStatus: 'not_shared',
           },
           {
             id: '2',
             name: 'Alice Johnson',
             email: 'alice@example.com',
             phoneNumbers: [{
+              id: '1',
               number: '+1 234 567 8900',
               label: 'mobile'
             }],
             shared: false,
+            sharedStatus: 'not_shared',
           },
           {
             id: '3',
             name: 'Bob Smith',
             email: 'bob@example.com',
             phoneNumbers: [{
+              id: '2',
               number: '+1 234 567 8901',
               label: 'mobile'
             }],
             shared: false,
+            sharedStatus: 'not_shared',
           }
         ]);
         setLoading(false);
@@ -158,7 +178,7 @@ export default function ContactsScreen() {
 
       const contactsWithPhones = [
         geoffContact,
-        ...data.filter(contact => 
+        ...data.filter(contact =>
         contact.phoneNumbers && contact.phoneNumbers.length > 0
       ).map(contact => ({
         id: contact.id,
@@ -217,7 +237,7 @@ export default function ContactsScreen() {
       const q = query(sharedCalendarsRef, where('sharedBy', '==', user?.uid));
       const querySnapshot = await getDocs(q);
 
-      const sharedCalendarsData: Record<string, any> = {};
+      const sharedCalendarsData: Record<string, { status: string; sharedAt?: Date; lastUpdated?: Date }> = {};
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         sharedCalendarsData[data.contactPhone] = {
@@ -235,7 +255,7 @@ export default function ContactsScreen() {
 
   const loadSharedWithMe = async () => {
     if (!user || !phoneInfo?.phoneNumber) return;
-    
+
     setLoadingSharedWithMe(true);
     try {
       const cleanPhoneNumber = phoneInfo.phoneNumber.replace(/\D/g, '');
@@ -281,7 +301,7 @@ export default function ContactsScreen() {
       }
 
       const formattedPhoneNumber = contact.phoneNumbers[0].number.replace(/\D/g, '');
-      
+
       // Check if contact exists in users collection
       const usersRef = collection(FIREBASE_FIRESTORE, 'users');
       const userQuery = query(usersRef, where('phoneNumber', '==', formattedPhoneNumber));
@@ -336,14 +356,21 @@ export default function ContactsScreen() {
       // Save to sharedContacts collection
       const sharedContactsRef = doc(FIREBASE_FIRESTORE, 'sharedContacts', user.uid);
       const sharedContactsDoc = await getDoc(sharedContactsRef);
-      
+
       if (sharedContactsDoc.exists()) {
         const existingContacts = sharedContactsDoc.data().contacts || [];
-        const contactExists = existingContacts.some((c: any) => 
-          c.contactId === contact.id || 
+        type SharedContact = {
+          contactId: string;
+          contactName: string;
+          phoneNumber: string;
+          sharedAt: Date;
+        };
+
+        const contactExists = existingContacts.some((c: SharedContact) =>
+          c.contactId === contact.id ||
           (c.phoneNumber && c.phoneNumber === formattedPhoneNumber)
         );
-        
+
         if (!contactExists) {
           await updateDoc(sharedContactsRef, {
             contacts: arrayUnion({
@@ -384,8 +411,12 @@ export default function ContactsScreen() {
         }
       }
 
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('An unknown error occurred');
+      }
     }
   };
 
@@ -705,13 +736,13 @@ export default function ContactsScreen() {
           ...prev,
           [contact.id]: [
             {
-              action: 'shared',
+              action: 'shared' as const,
               timestamp: data.sharedAt?.toDate(),
               status: data.status,
               eventsCount: data.events?.length || 0
             },
             ...(data.lastUpdated ? [{
-              action: 'updated',
+              action: 'updated' as const,
               timestamp: data.lastUpdated.toDate(),
               status: data.status,
               eventsCount: data.events?.length || 0
@@ -741,8 +772,8 @@ export default function ContactsScreen() {
       // Reload sharing history for all shared contacts
       await Promise.all(contactsToRefresh.map(contact => loadSharingHistory(contact)));
     } catch (err) {
-      console.error('Error during bulk refresh:', err);
       setError('Failed to refresh all contacts');
+      console.error('Error during bulk refresh:', err);
     } finally {
       setRefreshing(false);
     }
@@ -857,7 +888,7 @@ export default function ContactsScreen() {
                     {event.title}
                   </Text>
                   <Text style={[styles.sharedCalendarEventTime, isDark && styles.textMuted]}>
-                    {new Date(event.startDate.toDate()).toLocaleString()}
+                    {event.startDate.toLocaleString()}
                   </Text>
                 </View>
               ))}

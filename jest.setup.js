@@ -1,49 +1,50 @@
-jest.mock('expo-router', () => {
-  const React = require('react');
-  const { View, Text } = require('react-native');
-  return {
-    useRouter: jest.fn(),
-    useLocalSearchParams: jest.fn(),
-    Redirect: ({ href }) => (
-      React.createElement(View, null, React.createElement(Text, null, `Redirected to ${href}`))
-    ),
-  };
-});
+import '@testing-library/jest-native/extend-expect';
+import jest from 'jest';
+import { View, Text } from 'react-native';
+
+// Mock AsyncStorage
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+}));
+
+// Mock expo-router
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    back: jest.fn(),
+    replace: jest.fn(),
+  }),
+  useLocalSearchParams: () => ({ id: '' }),
+  Redirect: ({ href }) => (
+    <View>
+      <Text>Redirected to {href}</Text>
+    </View>
+  ),
+}));
+
+// Mock firebase
 jest.mock('firebase/app', () => ({
-  __esModule: true,
-  initializeApp: () => ({}),
+  initializeApp: jest.fn(),
 }));
-jest.mock('firebase/auth', () => ({
-  __esModule: true,
-  initializeAuth: () => ({}),
-}));
+
 jest.mock('firebase/firestore', () => ({
-  __esModule: true,
   getFirestore: jest.fn(),
   doc: jest.fn(),
   getDoc: jest.fn(),
   setDoc: jest.fn(),
   updateDoc: jest.fn(),
+  collection: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
+  getDocs: jest.fn(),
 }));
-jest.mock('firebase/storage', () => ({
-  __esModule: true,
-  getStorage: () => ({}),
+
+// Mock expo-calendar
+jest.mock('expo-calendar', () => ({
+  requestCalendarPermissionsAsync: jest.fn(),
+  getCalendarsAsync: jest.fn(),
+  createEventAsync: jest.fn(),
 }));
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  __esModule: true,
-  default: {},
-}));
-jest.mock('react-native/Libraries/Components/Switch/Switch', () => {
-  const React = require('react');
-  return {
-    __esModule: true,
-    default: React.forwardRef((props, ref) => React.createElement('Switch', { ...props, ref })),
-  };
-});
-jest.mock('react-native/Libraries/Components/Pressable/Pressable', () => {
-  const React = require('react');
-  return {
-    __esModule: true,
-    default: React.forwardRef((props, ref) => React.createElement('Pressable', { ...props, ref })),
-  };
-});

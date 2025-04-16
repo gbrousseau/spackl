@@ -15,6 +15,16 @@ import { FIREBASE_FIRESTORE } from '@/firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, PermissionsAndroid } from 'react-native';
 import * as Device from 'expo-device';
+import {
+  GoogleSignin,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
+
+// Initialize Google Sign-In
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+});
 
 type AuthContextType = {
   user: User | null;
@@ -28,7 +38,7 @@ type AuthContextType = {
   } | null;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: (idToken: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
   error: string | null;
@@ -294,23 +304,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async (idToken: string) => {
+  const signInWithGoogle = async () => {
     try {
-      setError(null);
       setLoading(true);
+      setError(null);
 
-      const hasPermissions = await requestPermissions();
-      if (!hasPermissions) {
-        throw new Error('Required permissions not granted');
-      }
+      // Check if your device supports Google Play
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      
+      // Get the users ID token
+      const signInResult = await GoogleSignin.signIn();
+      const { serverAuthCode } = signInResult;
+      const { accessToken } = await GoogleSignin.getTokens();
 
-      const credential = GoogleAuthProvider.credential(idToken);
-      const userCredential = await signInWithCredential(FIREBASE_AUTH, credential);
+      // Create a Google credential with the token
+      const googleCredential = GoogleAuthProvider.credential(null, accessToken);
+
+      // Sign-in the user with the credential
+      const userCredential = await signInWithCredential(FIREBASE_AUTH, googleCredential);
       setUser(userCredential.user);
-      router.replace('/(tabs)');
+
+      // Store user session
+      await AsyncStorage.setItem('user', JSON.stringify(userCredential.user));
+      await AsyncStorage.setItem('deviceInfo', JSON.stringify(deviceInfo));
+
+      // Update or create user document in Firestore
+      const userRef = doc(FIREBASE_FIRESTORE, 'users', userCredential.user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        await setDoc(userRef, {
+          email: userCredential.user.email,
+          displayName: userCredential.user.displayName,
+          photoURL: userCredential.user.photoURL,
+          createdAt: new Date(),
+          lastLogin: new Date(),
+          deviceInfo,
+        });
+      } else {
+        await updateDoc(userRef, {
+          lastLogin: new Date(),
+          deviceInfo,
+        });
+      }
     } catch (error: any) {
-      setError(error.message);
-      throw error;
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        setError('Sign in was cancelled');
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        setError('Sign in is already in progress');
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setError('Play services not available or outdated');
+      } else {
+        setError('Something went wrong with Google sign in');
+        console.error('Google sign in error:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -318,15 +365,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      setError(null);
       setLoading(true);
+      setError(null);
       await firebaseSignOut(FIREBASE_AUTH);
-      setUser(null);
+      await GoogleSignin.signOut();
       await AsyncStorage.removeItem('user');
-      router.replace('/auth/login');
-    } catch (error: any) {
-      setError(error.message);
-      throw error;
+      await AsyncStorage.removeItem('deviceInfo');
+      setUser(null);
+    } catch (error) {
+      console.error('Sign out error:', error);
+      setError('Failed to sign out');
     } finally {
       setLoading(false);
     }

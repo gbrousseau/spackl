@@ -5,8 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import * as Contacts from 'expo-contacts';
 import * as SMS from 'expo-sms';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { FIREBASE_FIRESTORE } from '@/firebaseConfig';
+import { getDoc, getDocs } from 'firebase/firestore';
 
 // Mock the required hooks and modules
 jest.mock('@/context/AuthContext', () => ({

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import { Calendar, CheckCircle, XCircle, Clock, ChevronRight, Users, MapPin } from 'lucide-react-native';
@@ -567,14 +567,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.05,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+      web: {
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+      },
+    }),
   },
   invitationCardDark: {
     backgroundColor: '#1e293b',
