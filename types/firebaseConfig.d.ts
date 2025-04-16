@@ -1,3 +1,5 @@
 declare module '@/config/firebaseConfig' {
-  export const FIREBASE_FIRESTORE: any;
+  import { Firestore } from 'firebase/firestore';
+  
+  export const FIREBASE_FIRESTORE: Firestore;
 } 
