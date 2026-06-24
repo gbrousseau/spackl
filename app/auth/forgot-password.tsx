@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Mail, ArrowLeft, Send, CircleCheck as CheckCircle2, CircleAlert as AlertCircle } from 'lucide-react-native';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { FIREBASE_AUTH } from '@/firebaseConfig';
 import { useTheme } from '@/context/ThemeContext';
 
 export default function ForgotPasswordScreen() {
@@ -33,13 +35,25 @@ export default function ForgotPasswordScreen() {
     setStatus('loading');
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await sendPasswordResetEmail(FIREBASE_AUTH, email.trim());
       
       setStatus('success');
-    } catch (err) {
+    } catch (err: any) {
       setStatus('error');
-      setError('Failed to send reset instructions. Please try again.');
+
+      switch (err?.code) {
+        case 'auth/invalid-email':
+          setError('Please enter a valid email address');
+          break;
+        case 'auth/user-not-found':
+          setError('No account found with this email address');
+          break;
+        case 'auth/too-many-requests':
+          setError('Too many attempts. Please try again later.');
+          break;
+        default:
+          setError('Failed to send reset instructions. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

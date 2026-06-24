@@ -8,8 +8,27 @@
     "scheme": "spackl",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "owner": "gbrousseau",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.spackl.app"
+    },
+    "android": {
+      "package": "com.spackl.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "READ_CONTACTS",
+        "WRITE_CONTACTS",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "INTERNET",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -24,7 +43,15 @@
     "updates": {
       "enabled": true,
       "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/your-project-id"
+      "url": "https://u.expo.dev/b8838a7f-18f1-465c-a19b-e0ca63a2eafd"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b8838a7f-18f1-465c-a19b-e0ca63a2eafd"
+      }
     }
   }
 }

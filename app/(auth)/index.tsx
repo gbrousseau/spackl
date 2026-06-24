@@ -42,6 +42,22 @@ export default function AuthScreen() {
               <Text style={styles.buttonText}>Continue with Google</Text>
             )}
           </Pressable>
+
+          <Pressable
+            style={[styles.button, styles.emailButton, loading && styles.buttonDisabled]}
+            onPress={() => router.push('/auth/login')}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>Continue with Email</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.linkButton}
+            onPress={() => router.push('/auth/register')}
+            disabled={loading}
+          >
+            <Text style={[styles.linkText, isDark && styles.linkTextDark]}>Create an account</Text>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -90,10 +106,28 @@ const styles = StyleSheet.create({
   googleButton: {
     backgroundColor: '#0891b2',
   },
+  emailButton: {
+    backgroundColor: '#0f172a',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   buttonText: {
     color: '#ffffff',
     fontSize: 16,
     fontFamily: 'Inter_600SemiBold',
+  },
+  linkButton: {
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  linkText: {
+    color: '#0891b2',
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+  },
+  linkTextDark: {
+    color: '#67e8f9',
   },
   textLight: {
     color: '#f8fafc',
