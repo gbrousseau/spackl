@@ -67,12 +67,12 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <NotificationProvider>
-          <ContactsProvider>
-            <CalendarProvider>
-              <GroupProvider>
+    <ThemeProvider children={undefined}>
+      <AuthProvider children={undefined}>
+        <NotificationProvider children={undefined}>
+          <ContactsProvider children={undefined}>
+            <CalendarProvider children={undefined}>
+              <GroupProvider children={undefined}>
                 <RootLayoutNav />
               </GroupProvider>
             </CalendarProvider>
